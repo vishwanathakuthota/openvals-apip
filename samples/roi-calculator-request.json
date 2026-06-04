@@ -1,0 +1,8 @@
+{
+  "users": 2500,
+  "tokens_per_user": 120000,
+  "provider": "OpenAI",
+  "infrastructure_cost": 15000,
+  "employees": 8,
+  "subscription_price": 49
+}

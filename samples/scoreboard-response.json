@@ -1,0 +1,16 @@
+{
+  "total_ai_spend": 420000000000,
+  "total_ai_revenue": 310000000000,
+  "net_profit": -110000000000,
+  "global_roi": 0.7381,
+  "profitability_gauge": "PARTIALLY",
+  "companies_tracked": 50,
+  "industries_tracked": 10,
+  "countries_tracked": 10,
+  "confidence": {
+    "score": 80,
+    "label": "High Confidence",
+    "source_count": 3,
+    "last_updated": "2026-06-04T09:00:00Z"
+  }
+}

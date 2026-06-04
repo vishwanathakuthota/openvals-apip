@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "metric_openai_revenue_2026",
+      "entity_type": "company",
+      "entity_id": "company_openai",
+      "metric_key": "ai_revenue",
+      "value": 12500000000,
+      "unit": "usd",
+      "period_start": "2026-01-01",
+      "period_end": "2026-12-31",
+      "confidence": {
+        "score": 80,
+        "label": "High Confidence",
+        "source_count": 3,
+        "last_updated": "2026-06-04T09:00:00Z"
+      }
+    }
+  ]
+}

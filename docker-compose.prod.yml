@@ -1,0 +1,14 @@
+services:
+  api:
+    image: ghcr.io/openvals/apip-api:${IMAGE_TAG:?set IMAGE_TAG}
+    env_file:
+      - .env
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  worker:
+    image: ghcr.io/openvals/apip-worker:${IMAGE_TAG:?set IMAGE_TAG}
+    env_file:
+      - .env
+    restart: unless-stopped

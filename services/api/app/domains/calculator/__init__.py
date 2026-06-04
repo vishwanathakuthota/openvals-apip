@@ -1,0 +1,1 @@
+"""ROI calculator domain."""
