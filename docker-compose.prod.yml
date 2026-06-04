@@ -12,3 +12,12 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+
+  web:
+    image: ghcr.io/openvals/apip-web:${IMAGE_TAG:?set IMAGE_TAG}
+    environment:
+      WEB_PUBLIC_API_BASE_URL: ${WEB_PUBLIC_API_BASE_URL:?set WEB_PUBLIC_API_BASE_URL}
+      APIP_API_BASE_URL: ${APIP_API_BASE_URL:?set APIP_API_BASE_URL}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
