@@ -312,30 +312,80 @@ Approves a metric and triggers confidence/derived metric recalculation.
 
 ### POST /api/v1/admin/imports/csv
 
-Uploads a CSV file and queues an import job.
+Uploads a financial metrics CSV file, validates each row, creates pending `source_metrics`, calculates preliminary confidence scores, and writes import audit logs.
 
-### POST /api/v1/admin/etl-jobs
+Multipart form field:
 
-Triggers an ETL job.
+- `file`: `.csv`
 
-Request:
+Required CSV columns:
+
+- `company`
+- `year`
+- `metric_type`
+- `value`
+- `source_url`
+- `source_type`
+
+Response:
 
 ```json
 {
-  "job_type": "recalculate_metrics",
-  "parameters": {
-    "period_end": "2026-12-31"
-  }
+  "imported_count": 1,
+  "items": [
+    {
+      "id": "srcmet_123",
+      "company": "OpenAI",
+      "year": 2026,
+      "metric_type": "ai_revenue",
+      "value": 12500000000,
+      "source_url": "https://example.com/openai-annual-report",
+      "source_type": "annual_report",
+      "confidence_score": 75.5,
+      "approved_status": "pending"
+    }
+  ]
 }
 ```
 
-### GET /api/v1/admin/etl-jobs/{job_id}
+### GET /api/v1/admin/source-metrics
 
-Returns ETL job status and events.
+Lists imported metrics for admin review. Optional query parameter:
+
+- `approved_status`: `pending`, `approved`, or `rejected`
+
+### PATCH /api/v1/admin/source-metrics/{source_metric_id}/approve
+
+Approves an imported metric, publishes it to canonical `metric_values`, links the approved source, recalculates confidence, creates a metric version, and writes audit logs.
+
+### PATCH /api/v1/admin/source-metrics/{source_metric_id}/reject
+
+Rejects an imported metric and source without publishing it to public metric responses.
 
 ### GET /api/v1/admin/audit-logs
 
-Lists audit logs.
+Lists source workflow and metric publication audit logs.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "audit_123",
+      "actor": "APIP Admin",
+      "action": "source_metric.approved",
+      "target_type": "source_metric",
+      "target_id": "srcmet_123",
+      "metadata": {
+        "source_id": "src_123"
+      },
+      "created_at": "2026-06-04T09:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
 
 ### GET /api/v1/admin/users
 

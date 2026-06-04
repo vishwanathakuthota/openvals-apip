@@ -112,6 +112,30 @@ class Source(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
 
 
+class SourceMetric(TimestampMixin, Base):
+    __tablename__ = "source_metrics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)
+    metric_type: Mapped[str] = mapped_column(String(120), index=True)
+    value_numeric: Mapped[float] = mapped_column(Numeric(20, 6))
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    source_url: Mapped[str] = mapped_column(String(1000))
+    source_type: Mapped[str] = mapped_column(String(120), index=True)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    methodology_note: Mapped[str] = mapped_column(Text)
+    created_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    approved_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    company: Mapped[Company] = relationship()
+    source: Mapped[Source] = relationship()
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_user_id])
+    reviewed_by: Mapped[User | None] = relationship(foreign_keys=[reviewed_by_user_id])
+
+
 class MetricValue(TimestampMixin, Base):
     __tablename__ = "metric_values"
     __table_args__ = (
@@ -156,6 +180,24 @@ class MetricSource(TimestampMixin, Base):
     source: Mapped[Source] = relationship()
 
 
+class MetricVersion(TimestampMixin, Base):
+    __tablename__ = "metric_versions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    source_metric_id: Mapped[str] = mapped_column(ForeignKey("source_metrics.id"), index=True)
+    metric_value_id: Mapped[str | None] = mapped_column(
+        ForeignKey("metric_values.id"), nullable=True, index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    value_numeric: Mapped[float] = mapped_column(Numeric(20, 6))
+    approved_status: Mapped[str] = mapped_column(String(40), index=True)
+    created_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+
+    source_metric: Mapped[SourceMetric] = relationship()
+    metric_value: Mapped[MetricValue | None] = relationship()
+    created_by: Mapped[User] = relationship()
+
+
 class ConfidenceScore(TimestampMixin, Base):
     __tablename__ = "confidence_scores"
 
@@ -171,3 +213,19 @@ class ConfidenceScore(TimestampMixin, Base):
     methodology_note: Mapped[str] = mapped_column(Text)
 
     metric_value: Mapped[MetricValue] = relationship(back_populates="confidence_score")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    actor_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(120), index=True)
+    target_type: Mapped[str] = mapped_column(String(120), index=True)
+    target_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    metadata_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    actor: Mapped[User | None] = relationship()
