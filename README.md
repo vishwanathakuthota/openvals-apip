@@ -7,6 +7,7 @@ APIP is the AI Profitability Intelligence Platform for measuring whether AI inve
 This repository includes the backend V1 foundation:
 
 - FastAPI backend scaffold under `services/api`
+- Next.js frontend under `apps/web`
 - PostgreSQL and Redis topology through Docker Compose
 - Celery worker scaffold
 - SQLAlchemy models and Alembic migrations
@@ -30,8 +31,17 @@ Full stack:
 docker compose up --build
 ```
 
+Web:
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
 ## Key URLs
 
+- Web: `http://localhost:3000`
 - API: `http://localhost:8000`
 - API docs: `http://localhost:8000/docs`
 - Health: `http://localhost:8000/health/ready`

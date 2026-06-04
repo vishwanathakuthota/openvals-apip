@@ -51,6 +51,20 @@ services:
       redis:
         condition: service_healthy
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      WEB_PUBLIC_API_BASE_URL: http://api:8000
+      APIP_API_BASE_URL: http://api:8000
+      APIP_DEMO_EMAIL: admin@openvalidations.com
+      APIP_DEMO_PASSWORD: apip-admin-change-me
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
 volumes:
   apip_postgres_data:
   apip_redis_data:
