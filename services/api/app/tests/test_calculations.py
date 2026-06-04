@@ -39,6 +39,15 @@ def test_ai_reality_index_formula_matches_prd_weights():
     result = calculate_ai_reality_index(roi=80, revenue_growth=70, margin=60, adoption=50)
     assert result["score"] == 70
     assert result["label"] == "Strong"
+    assert result["classification"] == "Strong"
+
+
+def test_ai_reality_index_classification_bands_match_prd():
+    assert calculate_ai_reality_index(100, 100, 100, 100)["classification"] == "Elite"
+    assert calculate_ai_reality_index(70, 70, 70, 70)["classification"] == "Strong"
+    assert calculate_ai_reality_index(50, 50, 50, 50)["classification"] == "Emerging"
+    assert calculate_ai_reality_index(30, 30, 30, 30)["classification"] == "Speculative"
+    assert calculate_ai_reality_index(0, 0, 0, 0)["classification"] == "Cash Burn Zone"
 
 
 def test_roi_calculator_returns_break_even_users():

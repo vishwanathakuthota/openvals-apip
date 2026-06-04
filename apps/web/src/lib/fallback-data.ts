@@ -79,10 +79,10 @@ export const fallbackScoreboard: Scoreboard = {
       "Global dashboard confidence reflects approved metric records and source coverage across APIP seed data."
   },
   top_ai_reality_index: [
-    { entity_type: "company", entity_id: "company_nvidia", score: 73.52, label: "Strong" },
-    { entity_type: "industry", entity_id: "industry_cybersecurity", score: 72.4, label: "Strong" },
-    { entity_type: "country", entity_id: "country_us", score: 70.8, label: "Strong" },
-    { entity_type: "model", entity_id: "model_gpt", score: 69.7, label: "Emerging" }
+    reality("company", "company_nvidia", "NVIDIA", 88.9, "Strong", 94, 88, 74, 91),
+    reality("company", "company_openai", "OpenAI", 72.2, "Strong", 78, 82, 48, 76),
+    reality("industry", "industry_healthcare", "Healthcare AI", 86.4, "Strong", 100, 59, 62, 67),
+    reality("country", "country_us", "United States", 67.7, "Emerging", 74, 68, 45, 61)
   ]
 };
 
@@ -137,5 +137,33 @@ function metric(
         evidence_note: "Fallback source transparency record."
       }
     ]
+  };
+}
+
+function reality(
+  entity_type: "company" | "industry" | "country",
+  entity_id: string,
+  entity_name: string,
+  score: number,
+  label: string,
+  roi: number,
+  revenue_growth: number,
+  margin: number,
+  adoption: number
+) {
+  return {
+    entity_type,
+    entity_id,
+    entity_name,
+    score,
+    label,
+    classification: label,
+    components: { roi, revenue_growth, margin, adoption },
+    confidence: defaultConfidence,
+    confidence_score: defaultConfidence.score,
+    source_count: defaultConfidence.source_count,
+    last_updated: defaultConfidence.last_updated,
+    methodology_note:
+      "AI Reality Index is calculated from approved ROI, revenue growth, margin, and adoption metrics."
   };
 }

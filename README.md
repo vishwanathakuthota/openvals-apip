@@ -13,6 +13,7 @@ This repository includes the backend V1 foundation:
 - SQLAlchemy models and Alembic migrations
 - JWT login and protected REST APIs
 - Confidence Score Engine with source reliability, freshness, cross-verification, and methodology scoring
+- AI Reality Index with company, industry, and country rankings
 - CSV ETL and source management workflow with admin approval, metric versioning, and audit logs
 - GitHub Actions backend CI and Docker image workflows
 - Sample API payloads
@@ -51,5 +52,6 @@ npm run dev
 ## Source Management
 
 - ETL workflow: [docs/etl-source-management.md](docs/etl-source-management.md)
+- AI Reality Index: [docs/ai-reality-index.md](docs/ai-reality-index.md)
 - CSV template: [samples/financial-metrics-template.csv](samples/financial-metrics-template.csv)
 - Admin UI: `http://localhost:3000/admin`

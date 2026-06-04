@@ -71,6 +71,45 @@ def test_confidence_endpoint_returns_metric_confidence():
     assert response.json()["score"] >= 0
 
 
+def test_ai_reality_index_endpoint_returns_ranked_entity_scores():
+    client = build_client()
+    headers = auth_headers(client)
+
+    response = client.get("/api/v1/ai-reality-index", headers=headers)
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert items
+    assert {item["entity_type"] for item in items} >= {"company", "industry", "country"}
+    first = items[0]
+    assert first["score"] >= items[-1]["score"]
+    assert first["classification"] in {
+        "Elite",
+        "Strong",
+        "Emerging",
+        "Speculative",
+        "Cash Burn Zone",
+    }
+    assert first["components"]["roi"] >= 0
+    assert first["components"]["revenue_growth"] >= 0
+    assert first["components"]["margin"] >= 0
+    assert first["components"]["adoption"] >= 0
+    assert first["confidence"]["source_count"] >= 1
+    assert first["confidence"]["last_updated"]
+
+
+def test_ai_reality_index_endpoint_filters_by_entity_type():
+    client = build_client()
+    headers = auth_headers(client)
+
+    response = client.get("/api/v1/ai-reality-index?entity_type=industry", headers=headers)
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert items
+    assert {item["entity_type"] for item in items} == {"industry"}
+
+
 def test_metric_responses_include_confidence_engine_fields():
     client = build_client()
     headers = auth_headers(client)
