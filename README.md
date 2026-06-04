@@ -1,2 +1,37 @@
-# openvals-apip
-OpenVals APIP -- AI Profitability Intelligence Platform
+# OpenVals APIP
+
+APIP is the AI Profitability Intelligence Platform for measuring whether AI investments are producing real economic value.
+
+## Backend V1
+
+This repository includes the backend V1 foundation:
+
+- FastAPI backend scaffold under `services/api`
+- PostgreSQL and Redis topology through Docker Compose
+- Celery worker scaffold
+- SQLAlchemy models and Alembic migrations
+- JWT login and protected REST APIs
+- GitHub Actions backend CI and Docker image workflows
+- Sample API payloads
+
+## Local Development
+
+API:
+
+```bash
+cd services/api
+python -m pip install ".[dev]"
+uvicorn app.main:app --reload
+```
+
+Full stack:
+
+```bash
+docker compose up --build
+```
+
+## Key URLs
+
+- API: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health/ready`
