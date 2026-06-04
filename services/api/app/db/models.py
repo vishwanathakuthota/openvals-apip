@@ -107,6 +107,7 @@ class Source(TimestampMixin, Base):
     source_type: Mapped[str] = mapped_column(String(120), index=True)
     url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     publisher: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reliability_score: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
 
@@ -137,6 +138,22 @@ class MetricValue(TimestampMixin, Base):
 
     metric_definition: Mapped[MetricDefinition] = relationship()
     confidence_score: Mapped["ConfidenceScore"] = relationship(back_populates="metric_value")
+    source_links: Mapped[list["MetricSource"]] = relationship(back_populates="metric_value")
+
+
+class MetricSource(TimestampMixin, Base):
+    __tablename__ = "metric_sources"
+    __table_args__ = (
+        UniqueConstraint("metric_value_id", "source_id", name="uq_metric_source_link"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    metric_value_id: Mapped[str] = mapped_column(ForeignKey("metric_values.id"), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    evidence_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    metric_value: Mapped[MetricValue] = relationship(back_populates="source_links")
+    source: Mapped[Source] = relationship()
 
 
 class ConfidenceScore(TimestampMixin, Base):
@@ -151,5 +168,6 @@ class ConfidenceScore(TimestampMixin, Base):
     confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
     confidence_label: Mapped[str] = mapped_column(String(80))
     source_count: Mapped[int] = mapped_column(Integer)
+    methodology_note: Mapped[str] = mapped_column(Text)
 
     metric_value: Mapped[MetricValue] = relationship(back_populates="confidence_score")

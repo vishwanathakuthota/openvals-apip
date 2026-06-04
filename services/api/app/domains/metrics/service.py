@@ -11,8 +11,15 @@ METRIC_DEFINITIONS = [
 
 DEFAULT_CONFIDENCE = {
     **calculate_confidence(90, 75, 80, 70),
+    "source_reliability": 90,
+    "data_freshness": 75,
+    "cross_verification": 80,
+    "methodology_transparency": 70,
     "source_count": 3,
     "last_updated": "2026-06-04T09:00:00Z",
+    "methodology_note": (
+        "Dashboard aggregate confidence is derived from approved metric source coverage."
+    ),
 }
 
 METRIC_VALUES = [

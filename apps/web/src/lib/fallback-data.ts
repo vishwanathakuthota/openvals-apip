@@ -70,7 +70,14 @@ export const fallbackScoreboard: Scoreboard = {
   companies_tracked: 50,
   industries_tracked: 10,
   countries_tracked: 10,
-  confidence: { ...defaultConfidence, score: 71.4, label: "Medium Confidence", source_count: 184 },
+  confidence: {
+    ...defaultConfidence,
+    score: 71.4,
+    label: "Medium Confidence",
+    source_count: 184,
+    methodology_note:
+      "Global dashboard confidence reflects approved metric records and source coverage across APIP seed data."
+  },
   top_ai_reality_index: [
     { entity_type: "company", entity_id: "company_nvidia", score: 73.52, label: "Strong" },
     { entity_type: "industry", entity_id: "industry_cybersecurity", score: 72.4, label: "Strong" },
@@ -98,10 +105,37 @@ function metric(
     entity_id,
     metric_key,
     value,
+    confidence_score: defaultConfidence.score,
+    confidence_label: defaultConfidence.label,
+    source_count: defaultConfidence.source_count,
+    last_updated: defaultConfidence.last_updated,
+    methodology_note: "Synthetic APIP baseline calculated from approved source records.",
     unit,
     period_start: "2026-01-01",
     period_end: "2026-12-31",
     methodology: "Synthetic APIP backend seed baseline.",
-    confidence: defaultConfidence
+    confidence: defaultConfidence,
+    sources: [
+      {
+        id: "src_synthetic_annual_report",
+        title: "Synthetic APIP Annual Report Baseline",
+        source_type: "annual_report",
+        publisher: "OpenVals",
+        url: "https://example.com/apip-annual-report",
+        published_at: "2026-05-20T00:00:00Z",
+        reliability_score: 95,
+        evidence_note: "Fallback source transparency record."
+      },
+      {
+        id: "src_synthetic_investor_presentation",
+        title: "Synthetic APIP Investor Presentation",
+        source_type: "investor_presentation",
+        publisher: "OpenVals",
+        url: "https://example.com/apip-investor-presentation",
+        published_at: "2026-04-15T00:00:00Z",
+        reliability_score: 80,
+        evidence_note: "Fallback source transparency record."
+      }
+    ]
   };
 }

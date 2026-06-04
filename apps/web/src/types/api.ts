@@ -7,6 +7,7 @@ export type Confidence = {
   data_freshness?: number;
   cross_verification?: number;
   methodology_transparency?: number;
+  methodology_note?: string;
 };
 
 export type MetricValue = {
@@ -15,12 +16,29 @@ export type MetricValue = {
   entity_type: EntityType;
   entity_id: string | null;
   value: number;
+  confidence_score?: number | null;
+  confidence_label?: string | null;
+  source_count?: number;
+  last_updated?: string | null;
+  methodology_note?: string;
   unit: string;
   currency?: string | null;
   period_start: string;
   period_end: string;
   methodology?: string;
   confidence: Confidence | null;
+  sources?: SourceTransparency[];
+};
+
+export type SourceTransparency = {
+  id: string;
+  title: string;
+  source_type: string;
+  publisher?: string | null;
+  url?: string | null;
+  published_at?: string | null;
+  reliability_score: number;
+  evidence_note?: string | null;
 };
 
 export type EntityType = "company" | "industry" | "country" | "model" | "global";

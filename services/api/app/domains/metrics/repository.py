@@ -16,22 +16,45 @@ def confidence_payload(confidence: ConfidenceScore | None) -> dict[str, object] 
         "label": confidence.confidence_label,
         "source_count": confidence.source_count,
         "last_updated": confidence.updated_at.isoformat() if confidence.updated_at else None,
+        "methodology_note": confidence.methodology_note,
     }
 
 
 def metric_payload(metric: MetricValue) -> dict[str, object]:
+    confidence = confidence_payload(metric.confidence_score)
+    sources = [
+        {
+            "id": link.source.id,
+            "title": link.source.title,
+            "source_type": link.source.source_type,
+            "publisher": link.source.publisher,
+            "url": link.source.url,
+            "published_at": link.source.published_at.isoformat()
+            if link.source.published_at
+            else None,
+            "reliability_score": link.source.reliability_score,
+            "evidence_note": link.evidence_note,
+        }
+        for link in metric.source_links
+    ]
     return {
         "id": metric.id,
         "metric_key": metric.metric_definition.key,
         "entity_type": metric.entity_type,
         "entity_id": metric.entity_id,
         "value": float(metric.value_numeric),
+        "confidence_score": confidence["score"] if confidence else None,
+        "confidence_label": confidence["label"] if confidence else None,
+        "source_count": confidence["source_count"] if confidence else 0,
+        "last_updated": confidence["last_updated"] if confidence else None,
+        "methodology_note": confidence["methodology_note"] if confidence else metric.methodology,
         "unit": metric.metric_definition.unit,
         "currency": metric.currency,
         "period_start": metric.period_start.isoformat(),
         "period_end": metric.period_end.isoformat(),
         "methodology": metric.methodology,
-        "confidence": confidence_payload(metric.confidence_score),
+        "confidence": confidence,
+        "sources": sources,
     }
 
 

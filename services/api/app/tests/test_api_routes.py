@@ -69,3 +69,21 @@ def test_confidence_endpoint_returns_metric_confidence():
 
     assert response.status_code == 200
     assert response.json()["score"] >= 0
+
+
+def test_metric_responses_include_confidence_engine_fields():
+    client = build_client()
+    headers = auth_headers(client)
+
+    response = client.get("/api/v1/metrics/search", headers=headers)
+
+    assert response.status_code == 200
+    metric = response.json()["items"][0]
+    assert "value" in metric
+    assert "confidence_score" in metric
+    assert "confidence_label" in metric
+    assert "source_count" in metric
+    assert "last_updated" in metric
+    assert "methodology_note" in metric
+    assert metric["source_count"] >= 1
+    assert metric["sources"]

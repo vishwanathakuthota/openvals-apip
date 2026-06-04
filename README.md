@@ -12,6 +12,7 @@ This repository includes the backend V1 foundation:
 - Celery worker scaffold
 - SQLAlchemy models and Alembic migrations
 - JWT login and protected REST APIs
+- Confidence Score Engine with source reliability, freshness, cross-verification, and methodology scoring
 - GitHub Actions backend CI and Docker image workflows
 - Sample API payloads
 

@@ -25,7 +25,9 @@ export function ConfidenceScore({ confidence }: { confidence: Confidence | null 
             <ShieldCheck className="h-4 w-4 text-primary" />
             Confidence Score Engine
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Evidence quality, freshness, verification, and transparency.</p>
+          <p className="text-sm text-muted-foreground">
+            Evidence quality, freshness, verification, and transparency.
+          </p>
         </div>
         <Badge>{confidence.label}</Badge>
       </CardHeader>
@@ -48,6 +50,11 @@ export function ConfidenceScore({ confidence }: { confidence: Confidence | null 
             </div>
           ))}
         </div>
+        {confidence.methodology_note ? (
+          <p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            {confidence.methodology_note}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
