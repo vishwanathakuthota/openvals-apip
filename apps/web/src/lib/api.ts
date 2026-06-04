@@ -54,6 +54,34 @@ async function apiFetch<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
+export async function adminProxyFetch(path: string, init: RequestInit = {}) {
+  if (!API_BASE_URL) {
+    return Response.json(
+      { code: "api_unavailable", message: "APIP_API_BASE_URL is not configured." },
+      { status: 503 }
+    );
+  }
+  const token = await getToken();
+  if (!token) {
+    return Response.json(
+      { code: "admin_auth_unavailable", message: "Unable to authenticate admin API session." },
+      { status: 401 }
+    );
+  }
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}/api/v1/admin/${path}`, {
+    ...init,
+    headers,
+    cache: "no-store"
+  });
+  const body = await response.text();
+  return new Response(body, {
+    status: response.status,
+    headers: { "Content-Type": response.headers.get("Content-Type") ?? "application/json" }
+  });
+}
+
 export function fetchScoreboard() {
   return apiFetch<Scoreboard>("scoreboard", fallbackScoreboard);
 }
