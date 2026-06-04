@@ -1,4 +1,4 @@
-import { SourceManagement } from "@/components/admin/source-management";
+import { AdminPortal } from "@/components/admin/admin-portal";
 
 export default function AdminPage() {
   return (
@@ -7,7 +7,7 @@ export default function AdminPage() {
         <p className="text-xs font-semibold uppercase text-muted-foreground">Operations</p>
         <h1 className="text-4xl font-semibold">Admin Portal</h1>
       </header>
-      <SourceManagement />
+      <AdminPortal />
     </>
   );
 }

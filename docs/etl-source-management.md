@@ -53,4 +53,4 @@ The Next.js admin portal includes:
 - Approve/reject actions
 - Audit log timeline
 
-The browser calls Next.js internal admin routes, which proxy to the FastAPI admin API with server-side credentials. This keeps JWT handling out of the client while preserving the approved FastAPI REST contract.
+The browser signs in through the Next.js admin login proxy and stores the returned admin JWT in session storage. Internal Next.js admin routes forward that JWT to FastAPI admin APIs, so admin controls are hidden until login and all mutations still enforce FastAPI role-based authorization.

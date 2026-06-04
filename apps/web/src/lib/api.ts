@@ -61,15 +61,14 @@ export async function adminProxyFetch(path: string, init: RequestInit = {}) {
       { status: 503 }
     );
   }
-  const token = await getToken();
-  if (!token) {
+  const headers = new Headers(init.headers);
+  const authorization = headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) {
     return Response.json(
-      { code: "admin_auth_unavailable", message: "Unable to authenticate admin API session." },
+      { code: "admin_auth_required", message: "Admin login is required." },
       { status: 401 }
     );
   }
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${API_BASE_URL}/api/v1/admin/${path}`, {
     ...init,
     headers,
