@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,12 +11,13 @@ from app.db.models import (
     Country,
     Industry,
     MetricDefinition,
+    MetricSource,
     MetricValue,
     Source,
     User,
 )
 from app.db.session import SessionLocal
-from app.domains.confidence.service import calculate_confidence
+from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 
 
 def seed_database(db: Session) -> None:
@@ -236,26 +237,71 @@ def seed_database(db: Session) -> None:
         ),
     }
 
-    get_or_create(
-        db,
-        Source,
-        "title",
-        "Synthetic APIP Phase 2 Baseline",
-        source_type="industry_report",
-        url="https://example.com/apip-synthetic-baseline",
-        publisher="OpenVals",
-        reliability_score=65,
-        status="approved",
-    )
+    sources = [
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Annual Report Baseline",
+            source_type="annual_report",
+            url="https://example.com/apip-annual-report",
+            publisher="OpenVals",
+            published_at=datetime(2026, 5, 20, tzinfo=UTC),
+            reliability_score=source_reliability_score("annual_report"),
+            status="approved",
+        ),
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Investor Presentation",
+            source_type="investor_presentation",
+            url="https://example.com/apip-investor-presentation",
+            publisher="OpenVals",
+            published_at=datetime(2026, 4, 15, tzinfo=UTC),
+            reliability_score=source_reliability_score("investor_presentation"),
+            status="approved",
+        ),
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Industry Report",
+            source_type="industry_report",
+            url="https://example.com/apip-industry-report",
+            publisher="OpenVals",
+            published_at=datetime(2026, 2, 15, tzinfo=UTC),
+            reliability_score=source_reliability_score("industry_report"),
+            status="approved",
+        ),
+    ]
 
     seed_metric(
-        db, definitions["ai_revenue"], "company", companies["openai"].id, 12_500_000_000, "usd"
+        db,
+        definitions["ai_revenue"],
+        "company",
+        companies["openai"].id,
+        12_500_000_000,
+        "usd",
+        sources,
     )
     seed_metric(
-        db, definitions["ai_spend"], "company", companies["openai"].id, 16_000_000_000, "usd"
+        db,
+        definitions["ai_spend"],
+        "company",
+        companies["openai"].id,
+        16_000_000_000,
+        "usd",
+        sources,
     )
     seed_metric(
-        db, definitions["ai_revenue"], "country", countries["US"].id, 165_000_000_000, "usd"
+        db,
+        definitions["ai_revenue"],
+        "country",
+        countries["US"].id,
+        165_000_000_000,
+        "usd",
+        sources,
     )
     seed_metric(
         db,
@@ -264,6 +310,7 @@ def seed_database(db: Session) -> None:
         db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai")),
         1.18,
         None,
+        sources,
     )
     seed_metric(
         db,
@@ -272,6 +319,7 @@ def seed_database(db: Session) -> None:
         db.scalar(select(AIModel.id).where(AIModel.slug == "gpt")),
         0.61,
         None,
+        sources,
     )
 
     db.add(admin)
@@ -295,6 +343,7 @@ def seed_metric(
     entity_id: str | None,
     value: float,
     currency: str | None,
+    sources: list[Source],
 ) -> None:
     metric = db.scalar(
         select(MetricValue).where(
@@ -314,23 +363,43 @@ def seed_metric(
             period_end=date(2026, 12, 31),
             value_numeric=value,
             currency=currency,
-            methodology="Synthetic Phase 2 seed baseline.",
+            methodology=(
+                "Synthetic APIP baseline calculated from approved source records, "
+                "normalized to 2026 reporting periods, and cross-checked across annual report, "
+                "investor presentation, and industry report evidence."
+            ),
             status="approved",
         )
         db.add(metric)
         db.flush()
+    for source in sources:
+        existing_link = db.scalar(
+            select(MetricSource).where(
+                MetricSource.metric_value_id == metric.id,
+                MetricSource.source_id == source.id,
+            )
+        )
+        if not existing_link:
+            db.add(
+                MetricSource(
+                    metric_value_id=metric.id,
+                    source_id=source.id,
+                    evidence_note="Linked during APIP seed confidence calculation.",
+                )
+            )
     if not metric.confidence_score:
-        confidence = calculate_confidence(65, 90, 70, 75)
+        confidence = score_metric_confidence(metric, sources)
         db.add(
             ConfidenceScore(
                 metric_value_id=metric.id,
-                source_reliability=65,
-                data_freshness=90,
-                cross_verification=70,
-                methodology_transparency=75,
-                confidence_score=confidence["score"],
-                confidence_label=confidence["label"],
-                source_count=1,
+                source_reliability=confidence.source_reliability,
+                data_freshness=confidence.data_freshness,
+                cross_verification=confidence.cross_verification,
+                methodology_transparency=confidence.methodology_transparency,
+                confidence_score=confidence.confidence_score,
+                confidence_label=confidence.confidence_label,
+                source_count=confidence.source_count,
+                methodology_note=confidence.methodology_note,
             )
         )
 

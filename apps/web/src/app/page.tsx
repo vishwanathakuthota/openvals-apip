@@ -26,10 +26,30 @@ export default async function HomePage() {
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total AI Spend" value={scoreboard.total_ai_spend} unit="usd" />
-        <MetricCard label="Total AI Revenue" value={scoreboard.total_ai_revenue} unit="usd" />
-        <MetricCard label="Net Profit/Loss" value={scoreboard.net_profit} unit="usd" />
-        <MetricCard label="Global ROI" value={scoreboard.global_roi} unit="ratio" />
+        <MetricCard
+          confidence={scoreboard.confidence}
+          label="Total AI Spend"
+          value={scoreboard.total_ai_spend}
+          unit="usd"
+        />
+        <MetricCard
+          confidence={scoreboard.confidence}
+          label="Total AI Revenue"
+          value={scoreboard.total_ai_revenue}
+          unit="usd"
+        />
+        <MetricCard
+          confidence={scoreboard.confidence}
+          label="Net Profit/Loss"
+          value={scoreboard.net_profit}
+          unit="usd"
+        />
+        <MetricCard
+          confidence={scoreboard.confidence}
+          label="Global ROI"
+          value={scoreboard.global_roi}
+          unit="ratio"
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
@@ -59,11 +79,17 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent className="grid gap-3">
             {scoreboard.top_ai_reality_index.map((item) => (
-              <div className="grid grid-cols-[120px_1fr_80px_120px] gap-3 border-b border-border pb-3" key={item.entity_id}>
+              <div
+                className="grid grid-cols-[120px_1fr_80px_120px_120px] gap-3 border-b border-border pb-3"
+                key={item.entity_id}
+              >
                 <span className="text-sm text-muted-foreground">{item.entity_type}</span>
                 <strong>{entityName(item.entity_id)}</strong>
                 <span>{item.score}</span>
                 <Badge>{item.label}</Badge>
+                <span className="text-sm text-muted-foreground">
+                  {scoreboard.confidence.source_count} sources
+                </span>
               </div>
             ))}
           </CardContent>

@@ -113,6 +113,7 @@ def upgrade() -> None:
         sa.Column("source_type", sa.String(length=120), nullable=False),
         sa.Column("url", sa.String(length=1000), nullable=True),
         sa.Column("publisher", sa.String(length=255), nullable=True),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reliability_score", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(length=40), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -150,6 +151,21 @@ def upgrade() -> None:
     op.create_index("ix_metric_values_status", "metric_values", ["status"])
 
     op.create_table(
+        "metric_sources",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("metric_value_id", sa.String(length=36), nullable=False),
+        sa.Column("source_id", sa.String(length=36), nullable=False),
+        sa.Column("evidence_note", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["metric_value_id"], ["metric_values.id"]),
+        sa.ForeignKeyConstraint(["source_id"], ["sources.id"]),
+        sa.UniqueConstraint("metric_value_id", "source_id", name="uq_metric_source_link"),
+    )
+    op.create_index("ix_metric_sources_metric_value_id", "metric_sources", ["metric_value_id"])
+    op.create_index("ix_metric_sources_source_id", "metric_sources", ["source_id"])
+
+    op.create_table(
         "confidence_scores",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("metric_value_id", sa.String(length=36), nullable=False),
@@ -160,6 +176,7 @@ def upgrade() -> None:
         sa.Column("confidence_score", sa.Numeric(5, 2), nullable=False),
         sa.Column("confidence_label", sa.String(length=80), nullable=False),
         sa.Column("source_count", sa.Integer(), nullable=False),
+        sa.Column("methodology_note", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.ForeignKeyConstraint(["metric_value_id"], ["metric_values.id"]),
@@ -174,6 +191,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("confidence_scores")
+    op.drop_table("metric_sources")
     op.drop_table("metric_values")
     op.drop_table("sources")
     op.drop_table("metric_definitions")
