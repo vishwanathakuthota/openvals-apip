@@ -15,6 +15,7 @@ This repository includes the backend V1 foundation:
 - Confidence Score Engine with source reliability, freshness, cross-verification, and methodology scoring
 - AI Reality Index with company, industry, and country rankings
 - CSV ETL and source management workflow with admin approval, metric versioning, and audit logs
+- Login-protected admin portal for catalog management, source review, audit logs, and seed import
 - GitHub Actions backend CI and Docker image workflows
 - Sample API payloads
 
@@ -55,3 +56,4 @@ npm run dev
 - AI Reality Index: [docs/ai-reality-index.md](docs/ai-reality-index.md)
 - CSV template: [samples/financial-metrics-template.csv](samples/financial-metrics-template.csv)
 - Admin UI: `http://localhost:3000/admin`
+- Admin API: `/api/v1/admin/*`

@@ -330,9 +330,75 @@ Returns source metadata and linked metrics.
 
 Admin routes are under `/api/v1/admin`.
 
+All admin routes require an admin JWT:
+
+```http
+Authorization: Bearer <admin-token>
+```
+
+### GET /api/v1/admin/dashboard
+
+Returns admin counts for catalog entities, sources, pending imported metrics, and audit logs.
+
+### GET /api/v1/admin/companies
+
+Lists companies for administration.
+
+### POST /api/v1/admin/companies
+
+Creates a company.
+
+### PATCH /api/v1/admin/companies/{company_id}
+
+Updates company metadata or status.
+
+### GET /api/v1/admin/industries
+
+Lists industries for administration.
+
+### POST /api/v1/admin/industries
+
+Creates an industry.
+
+### PATCH /api/v1/admin/industries/{industry_id}
+
+Updates industry metadata or status.
+
+### GET /api/v1/admin/countries
+
+Lists countries for administration.
+
+### POST /api/v1/admin/countries
+
+Creates a country.
+
+### PATCH /api/v1/admin/countries/{country_id}
+
+Updates country metadata.
+
+### GET /api/v1/admin/models
+
+Lists AI models for administration.
+
+### POST /api/v1/admin/models
+
+Creates an AI model.
+
+### PATCH /api/v1/admin/models/{model_id}
+
+Updates AI model metadata or status.
+
+### GET /api/v1/admin/sources
+
+Lists all sources, including pending and rejected sources.
+
 ### POST /api/v1/admin/sources
 
-Creates a source record or registers an uploaded source.
+Creates a source record.
+
+### PATCH /api/v1/admin/sources/{source_id}
+
+Updates source metadata or status.
 
 ### PATCH /api/v1/admin/sources/{source_id}/approve
 
@@ -430,6 +496,10 @@ Response:
   "next_cursor": null
 }
 ```
+
+### POST /api/v1/admin/seed-import
+
+Runs the idempotent seed import and writes an audit event.
 
 ### GET /api/v1/admin/users
 

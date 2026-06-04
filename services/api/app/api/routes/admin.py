@@ -7,18 +7,401 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.db.models import (
+    AIModel,
     AuditLog,
+    Company,
     ConfidenceScore,
+    Country,
+    Industry,
     MetricDefinition,
     MetricSource,
     MetricValue,
     MetricVersion,
+    Source,
     SourceMetric,
 )
-from app.domains.confidence.service import score_metric_confidence
+from app.db.seed import seed_database
+from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 
 router = APIRouter()
+
+
+@router.get("/dashboard")
+def admin_dashboard(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return {
+        "counts": {
+            "companies": len(db.scalars(select(Company)).all()),
+            "industries": len(db.scalars(select(Industry)).all()),
+            "countries": len(db.scalars(select(Country)).all()),
+            "models": len(db.scalars(select(AIModel)).all()),
+            "sources": len(db.scalars(select(Source)).all()),
+            "pending_imported_metrics": len(
+                db.scalars(
+                    select(SourceMetric).where(SourceMetric.approved_status == "pending")
+                ).all()
+            ),
+            "audit_logs": len(db.scalars(select(AuditLog)).all()),
+        }
+    }
+
+
+@router.get("/companies")
+def admin_list_companies(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(Company).order_by(Company.name)).all()
+    return {"items": [company_payload(item) for item in items]}
+
+
+@router.post("/companies", status_code=status.HTTP_201_CREATED)
+def admin_create_company(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    name = required_text(payload, "name")
+    company = Company(
+        name=name,
+        slug=unique_slug(db, Company, str(payload.get("slug") or slugify(name))),
+        ticker=optional_text(payload.get("ticker")),
+        website_url=optional_text(payload.get("website_url")),
+        status=str(payload.get("status") or "active"),
+    )
+    db.add(company)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company.created",
+        target_type="company",
+        target_id=company.id,
+        metadata={"name": company.name},
+    )
+    db.commit()
+    return company_payload(company)
+
+
+@router.patch("/companies/{company_id}")
+def admin_update_company(
+    company_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    company = get_or_404(db, Company, company_id, "company_not_found")
+    update_fields(company, payload, ["name", "ticker", "website_url", "status"])
+    if "slug" in payload:
+        company.slug = str(payload["slug"])
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company.updated",
+        target_type="company",
+        target_id=company.id,
+        metadata={"name": company.name},
+    )
+    db.commit()
+    return company_payload(company)
+
+
+@router.get("/industries")
+def admin_list_industries(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(Industry).order_by(Industry.name)).all()
+    return {"items": [industry_payload(item) for item in items]}
+
+
+@router.post("/industries", status_code=status.HTTP_201_CREATED)
+def admin_create_industry(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    name = required_text(payload, "name")
+    industry = Industry(
+        name=name,
+        slug=unique_slug(db, Industry, str(payload.get("slug") or slugify(name))),
+        status=str(payload.get("status") or "active"),
+    )
+    db.add(industry)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="industry.created",
+        target_type="industry",
+        target_id=industry.id,
+        metadata={"name": industry.name},
+    )
+    db.commit()
+    return industry_payload(industry)
+
+
+@router.patch("/industries/{industry_id}")
+def admin_update_industry(
+    industry_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    industry = get_or_404(db, Industry, industry_id, "industry_not_found")
+    update_fields(industry, payload, ["name", "status"])
+    if "slug" in payload:
+        industry.slug = str(payload["slug"])
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="industry.updated",
+        target_type="industry",
+        target_id=industry.id,
+        metadata={"name": industry.name},
+    )
+    db.commit()
+    return industry_payload(industry)
+
+
+@router.get("/countries")
+def admin_list_countries(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(Country).order_by(Country.name)).all()
+    return {"items": [country_payload(item) for item in items]}
+
+
+@router.post("/countries", status_code=status.HTTP_201_CREATED)
+def admin_create_country(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    name = required_text(payload, "name")
+    country = Country(
+        name=name,
+        slug=unique_slug(db, Country, str(payload.get("slug") or slugify(name))),
+        iso_code=required_text(payload, "iso_code").upper(),
+        region=optional_text(payload.get("region")),
+    )
+    db.add(country)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="country.created",
+        target_type="country",
+        target_id=country.id,
+        metadata={"name": country.name, "iso_code": country.iso_code},
+    )
+    db.commit()
+    return country_payload(country)
+
+
+@router.patch("/countries/{country_id}")
+def admin_update_country(
+    country_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    country = get_or_404(db, Country, country_id, "country_not_found")
+    update_fields(country, payload, ["name", "slug", "region"])
+    if "iso_code" in payload:
+        country.iso_code = required_text(payload, "iso_code").upper()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="country.updated",
+        target_type="country",
+        target_id=country.id,
+        metadata={"name": country.name},
+    )
+    db.commit()
+    return country_payload(country)
+
+
+@router.get("/models")
+def admin_list_models(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(AIModel).order_by(AIModel.name)).all()
+    return {"items": [model_payload(item) for item in items]}
+
+
+@router.post("/models", status_code=status.HTTP_201_CREATED)
+def admin_create_model(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    name = required_text(payload, "name")
+    model = AIModel(
+        name=name,
+        slug=unique_slug(db, AIModel, str(payload.get("slug") or slugify(name))),
+        model_family=required_text(payload, "model_family"),
+        provider_company_id=optional_text(payload.get("provider_company_id")),
+        status=str(payload.get("status") or "active"),
+    )
+    db.add(model)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="model.created",
+        target_type="model",
+        target_id=model.id,
+        metadata={"name": model.name},
+    )
+    db.commit()
+    return model_payload(model)
+
+
+@router.patch("/models/{model_id}")
+def admin_update_model(
+    model_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    model = get_or_404(db, AIModel, model_id, "model_not_found")
+    update_fields(model, payload, ["name", "slug", "model_family", "provider_company_id", "status"])
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="model.updated",
+        target_type="model",
+        target_id=model.id,
+        metadata={"name": model.name},
+    )
+    db.commit()
+    return model_payload(model)
+
+
+@router.get("/sources")
+def admin_list_sources(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(Source).order_by(Source.created_at.desc())).all()
+    return {"items": [source_payload(item) for item in items]}
+
+
+@router.post("/sources", status_code=status.HTTP_201_CREATED)
+def admin_create_source(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    source_type = required_text(payload, "source_type")
+    source = Source(
+        title=required_text(payload, "title"),
+        source_type=source_type,
+        url=optional_text(payload.get("url")),
+        publisher=optional_text(payload.get("publisher")),
+        published_at=None,
+        reliability_score=source_reliability_score(source_type),
+        status=str(payload.get("status") or "pending"),
+    )
+    db.add(source)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="source.created",
+        target_type="source",
+        target_id=source.id,
+        metadata={"title": source.title},
+    )
+    db.commit()
+    return source_payload(source)
+
+
+@router.patch("/sources/{source_id}")
+def admin_update_source(
+    source_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    source = get_or_404(db, Source, source_id, "source_not_found")
+    update_fields(source, payload, ["title", "source_type", "url", "publisher", "status"])
+    if "source_type" in payload:
+        source.reliability_score = source_reliability_score(source.source_type)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="source.updated",
+        target_type="source",
+        target_id=source.id,
+        metadata={"title": source.title, "status": source.status},
+    )
+    db.commit()
+    return source_payload(source)
+
+
+@router.patch("/sources/{source_id}/approve")
+def admin_approve_source(
+    source_id: str,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    source = get_or_404(db, Source, source_id, "source_not_found")
+    source.status = "approved"
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="source.approved",
+        target_type="source",
+        target_id=source.id,
+        metadata={"title": source.title},
+    )
+    db.commit()
+    return source_payload(source)
+
+
+@router.patch("/sources/{source_id}/reject")
+def admin_reject_source(
+    source_id: str,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    source = get_or_404(db, Source, source_id, "source_not_found")
+    source.status = "rejected"
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="source.rejected",
+        target_type="source",
+        target_id=source.id,
+        metadata={"title": source.title},
+    )
+    db.commit()
+    return source_payload(source)
+
+
+@router.post("/seed-import")
+def admin_seed_import(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    seed_database(db)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="seed_import.triggered",
+        target_type="seed_import",
+        target_id=None,
+        metadata={"status": "completed"},
+    )
+    db.commit()
+    return {"status": "completed"}
 
 
 @router.post("/imports/csv", status_code=status.HTTP_201_CREATED)
@@ -326,3 +709,103 @@ def audit_log_payload(log: AuditLog) -> dict[str, object]:
         "metadata": json.loads(log.metadata_json),
         "created_at": log.created_at.isoformat() if log.created_at else None,
     }
+
+
+def company_payload(company: Company) -> dict[str, object]:
+    return {
+        "id": company.id,
+        "name": company.name,
+        "slug": company.slug,
+        "ticker": company.ticker,
+        "website_url": company.website_url,
+        "status": company.status,
+    }
+
+
+def industry_payload(industry: Industry) -> dict[str, object]:
+    return {
+        "id": industry.id,
+        "name": industry.name,
+        "slug": industry.slug,
+        "status": industry.status,
+    }
+
+
+def country_payload(country: Country) -> dict[str, object]:
+    return {
+        "id": country.id,
+        "name": country.name,
+        "slug": country.slug,
+        "iso_code": country.iso_code,
+        "region": country.region,
+    }
+
+
+def model_payload(model: AIModel) -> dict[str, object]:
+    return {
+        "id": model.id,
+        "name": model.name,
+        "slug": model.slug,
+        "model_family": model.model_family,
+        "provider_company_id": model.provider_company_id,
+        "status": model.status,
+    }
+
+
+def source_payload(source: Source) -> dict[str, object]:
+    return {
+        "id": source.id,
+        "title": source.title,
+        "source_type": source.source_type,
+        "url": source.url,
+        "publisher": source.publisher,
+        "published_at": source.published_at.isoformat() if source.published_at else None,
+        "reliability_score": source.reliability_score,
+        "status": source.status,
+    }
+
+
+def get_or_404(db: Session, model: type, item_id: str, code: str):
+    item = db.get(model, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": code})
+    return item
+
+
+def required_text(payload: dict[str, object], key: str) -> str:
+    value = str(payload.get(key) or "").strip()
+    if not value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "validation_failed", "message": f"{key} is required."},
+        )
+    return value
+
+
+def optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def update_fields(item: object, payload: dict[str, object], fields: list[str]) -> None:
+    for field in fields:
+        if field not in payload:
+            continue
+        value = optional_text(payload[field])
+        setattr(item, field, value)
+
+
+def slugify(value: str) -> str:
+    return value.strip().lower().replace(" ", "-").replace("_", "-")
+
+
+def unique_slug(db: Session, model: type, slug: str) -> str:
+    base = slugify(slug)
+    candidate = base
+    suffix = 2
+    while db.scalar(select(model).where(model.slug == candidate)):
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate

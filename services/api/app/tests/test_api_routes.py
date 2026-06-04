@@ -110,6 +110,92 @@ def test_ai_reality_index_endpoint_filters_by_entity_type():
     assert {item["entity_type"] for item in items} == {"industry"}
 
 
+def test_admin_routes_require_admin_authentication():
+    client = build_client()
+
+    response = client.get("/api/v1/admin/dashboard")
+
+    assert response.status_code == 401
+
+
+def test_admin_dashboard_catalog_management_source_management_and_seed_import():
+    client = build_client()
+    headers = auth_headers(client)
+
+    dashboard = client.get("/api/v1/admin/dashboard", headers=headers)
+    assert dashboard.status_code == 200
+    assert dashboard.json()["counts"]["companies"] >= 1
+
+    company = client.post(
+        "/api/v1/admin/companies",
+        headers=headers,
+        json={
+            "name": "Test AI Corp",
+            "ticker": "TAIC",
+            "website_url": "https://example.com/test-ai-corp",
+        },
+    )
+    assert company.status_code == 201
+    company_id = company.json()["id"]
+    company_update = client.patch(
+        f"/api/v1/admin/companies/{company_id}",
+        headers=headers,
+        json={"status": "archived"},
+    )
+    assert company_update.status_code == 200
+    assert company_update.json()["status"] == "archived"
+
+    industry = client.post(
+        "/api/v1/admin/industries",
+        headers=headers,
+        json={"name": "Robotics AI"},
+    )
+    assert industry.status_code == 201
+    country = client.post(
+        "/api/v1/admin/countries",
+        headers=headers,
+        json={"name": "Brazil", "iso_code": "BR", "region": "South America"},
+    )
+    assert country.status_code == 201
+    model = client.post(
+        "/api/v1/admin/models",
+        headers=headers,
+        json={"name": "Nova", "model_family": "Nova"},
+    )
+    assert model.status_code == 201
+
+    source = client.post(
+        "/api/v1/admin/sources",
+        headers=headers,
+        json={
+            "title": "Test Source",
+            "source_type": "annual_report",
+            "url": "https://example.com/test-source",
+            "publisher": "OpenVals",
+        },
+    )
+    assert source.status_code == 201
+    source_id = source.json()["id"]
+    approval = client.patch(f"/api/v1/admin/sources/{source_id}/approve", headers=headers)
+    assert approval.status_code == 200
+    assert approval.json()["status"] == "approved"
+
+    seed = client.post("/api/v1/admin/seed-import", headers=headers)
+    assert seed.status_code == 200
+    assert seed.json()["status"] == "completed"
+
+    audit_logs = client.get("/api/v1/admin/audit-logs", headers=headers)
+    actions = {item["action"] for item in audit_logs.json()["items"]}
+    assert {
+        "company.created",
+        "industry.created",
+        "country.created",
+        "model.created",
+        "source.approved",
+        "seed_import.triggered",
+    } <= actions
+
+
 def test_metric_responses_include_confidence_engine_fields():
     client = build_client()
     headers = auth_headers(client)
