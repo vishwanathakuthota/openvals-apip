@@ -235,6 +235,39 @@ def seed_database(db: Session) -> None:
             higher_is_better=1,
             aggregation_method="latest",
         ),
+        "revenue_growth": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "revenue_growth",
+            name="Revenue Growth",
+            description="Year-over-year AI revenue growth score.",
+            unit="ratio",
+            higher_is_better=1,
+            aggregation_method="latest",
+        ),
+        "adoption": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "adoption",
+            name="Adoption",
+            description="AI adoption score across tracked customers, users, or deployments.",
+            unit="score",
+            higher_is_better=1,
+            aggregation_method="latest",
+        ),
+        "ai_reality_index": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "ai_reality_index",
+            name="AI Reality Index",
+            description="Composite score from ROI, revenue growth, margin, and adoption.",
+            unit="score",
+            higher_is_better=1,
+            aggregation_method="weighted_average",
+        ),
     }
 
     sources = [
@@ -285,6 +318,62 @@ def seed_database(db: Session) -> None:
         "usd",
         sources,
     )
+    seed_metric(db, definitions["roi"], "company", companies["openai"].id, 0.78, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "company",
+        companies["openai"].id,
+        0.82,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "company",
+        companies["openai"].id,
+        0.48,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "company",
+        companies["openai"].id,
+        76,
+        None,
+        sources,
+    )
+    seed_metric(db, definitions["roi"], "company", companies["nvidia"].id, 0.94, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "company",
+        companies["nvidia"].id,
+        0.88,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "company",
+        companies["nvidia"].id,
+        0.74,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "company",
+        companies["nvidia"].id,
+        91,
+        None,
+        sources,
+    )
     seed_metric(
         db,
         definitions["ai_spend"],
@@ -303,12 +392,68 @@ def seed_database(db: Session) -> None:
         "usd",
         sources,
     )
+    seed_metric(db, definitions["roi"], "country", countries["US"].id, 0.74, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "country",
+        countries["US"].id,
+        0.68,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "country",
+        countries["US"].id,
+        0.45,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "country",
+        countries["US"].id,
+        61,
+        None,
+        sources,
+    )
+    healthcare_id = db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai"))
     seed_metric(
         db,
         definitions["roi"],
         "industry",
-        db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai")),
+        healthcare_id,
         1.18,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "industry",
+        healthcare_id,
+        0.59,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "industry",
+        healthcare_id,
+        0.62,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "industry",
+        healthcare_id,
+        67,
         None,
         sources,
     )

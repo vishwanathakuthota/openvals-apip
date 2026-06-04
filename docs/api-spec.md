@@ -107,12 +107,56 @@ Response:
 
 ### GET /api/v1/ai-reality-index
 
-Returns ranked AI Reality Index entities.
+Returns ranked AI Reality Index entities calculated from approved ROI, revenue growth, margin, and adoption metrics.
 
 Query parameters:
 
-- `entity_type`: `company`, `industry`, `country`, `model`, optional.
+- `entity_type`: `company`, `industry`, `country`, optional.
 - `limit`: default 25, maximum 100.
+
+Formula:
+
+```text
+AI Reality Index = (ROI * 0.4) + (Revenue Growth * 0.3) + (Margin * 0.2) + (Adoption * 0.1)
+```
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "entity_type": "company",
+      "entity_id": "company_nvidia",
+      "entity_name": "NVIDIA",
+      "score": 88.9,
+      "label": "Strong",
+      "classification": "Strong",
+      "components": {
+        "roi": 94,
+        "revenue_growth": 88,
+        "margin": 74,
+        "adoption": 91
+      },
+      "confidence": {
+        "score": 82.5,
+        "label": "High Confidence",
+        "source_count": 12,
+        "last_updated": "2026-06-04T09:00:00Z",
+        "methodology_note": "AI Reality Index is calculated from approved component metrics."
+      }
+    }
+  ]
+}
+```
+
+Classifications:
+
+- `90-100`: Elite
+- `70-89`: Strong
+- `50-69`: Emerging
+- `30-49`: Speculative
+- `0-29`: Cash Burn Zone
 
 ## Companies
 

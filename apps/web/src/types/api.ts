@@ -72,8 +72,21 @@ export type Scoreboard = {
 export type RealityIndexItem = {
   entity_type: EntityType;
   entity_id: string;
+  entity_name?: string;
   score: number;
   label: string;
+  classification?: string;
+  components?: {
+    roi: number;
+    revenue_growth: number;
+    margin: number;
+    adoption: number;
+  };
+  confidence?: Confidence;
+  confidence_score?: number;
+  source_count?: number;
+  last_updated?: string | null;
+  methodology_note?: string;
 };
 
 export type CollectionResponse<T = Entity> = {

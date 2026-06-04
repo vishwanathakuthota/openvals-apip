@@ -2,10 +2,10 @@ import { ConfidenceScore } from "@/components/confidence-score";
 import { ProfitabilityChart } from "@/components/charts/profitability-chart";
 import { RealityIndexChart } from "@/components/charts/reality-index-chart";
 import { MetricCard } from "@/components/metric-card";
+import { RealityIndexLeaderboard } from "@/components/reality-index-leaderboard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchScoreboard } from "@/lib/api";
-import { entityName } from "@/lib/fallback-data";
 
 export default async function HomePage() {
   const scoreboard = await fetchScoreboard();
@@ -14,6 +14,7 @@ export default async function HomePage() {
     { name: "Tracked", spend: scoreboard.total_ai_spend * 0.58, revenue: scoreboard.total_ai_revenue * 0.64 },
     { name: "Verified", spend: scoreboard.total_ai_spend * 0.34, revenue: scoreboard.total_ai_revenue * 0.42 }
   ];
+  const topRealityIndex = scoreboard.top_ai_reality_index[0];
 
   return (
     <>
@@ -25,7 +26,7 @@ export default async function HomePage() {
         <Badge className="w-fit border-primary text-primary">{scoreboard.profitability_gauge}</Badge>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           confidence={scoreboard.confidence}
           label="Total AI Spend"
@@ -50,6 +51,12 @@ export default async function HomePage() {
           value={scoreboard.global_roi}
           unit="ratio"
         />
+        <MetricCard
+          confidence={topRealityIndex?.confidence ?? scoreboard.confidence}
+          label="AI Reality Index"
+          value={topRealityIndex?.score ?? 0}
+          unit="score"
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
@@ -73,27 +80,7 @@ export default async function HomePage() {
             <RealityIndexChart items={scoreboard.top_ai_reality_index} />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Leaders</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {scoreboard.top_ai_reality_index.map((item) => (
-              <div
-                className="grid grid-cols-[120px_1fr_80px_120px_120px] gap-3 border-b border-border pb-3"
-                key={item.entity_id}
-              >
-                <span className="text-sm text-muted-foreground">{item.entity_type}</span>
-                <strong>{entityName(item.entity_id)}</strong>
-                <span>{item.score}</span>
-                <Badge>{item.label}</Badge>
-                <span className="text-sm text-muted-foreground">
-                  {scoreboard.confidence.source_count} sources
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <RealityIndexLeaderboard items={scoreboard.top_ai_reality_index} />
       </section>
     </>
   );

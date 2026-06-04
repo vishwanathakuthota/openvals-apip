@@ -1,5 +1,5 @@
 import { fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
-import type { CollectionResponse, Entity, EntityType, MetricValue, Scoreboard } from "@/types/api";
+import type { CollectionResponse, Entity, EntityType, MetricValue, RealityIndexItem, Scoreboard } from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
 const LOGIN_EMAIL = process.env.APIP_DEMO_EMAIL ?? "admin@openvalidations.com";
@@ -88,24 +88,10 @@ export function fetchScoreboard() {
 
 export function fetchRealityIndex(entityType?: EntityType) {
   const suffix = entityType ? `?entity_type=${entityType}` : "";
-  return apiFetch<CollectionResponse>("ai-reality-index" + suffix, {
-    items: fallbackScoreboard.top_ai_reality_index.map((item) => ({
-      id: item.entity_id,
-      name: labelForEntity(item.entity_id),
-      metrics: [
-        {
-          id: `${item.entity_id}_reality_index`,
-          metric_key: "ai_reality_index",
-          entity_type: item.entity_type,
-          entity_id: item.entity_id,
-          value: item.score,
-          unit: "score",
-          period_start: "2026-01-01",
-          period_end: "2026-12-31",
-          confidence: fallbackScoreboard.confidence
-        }
-      ]
-    })),
+  return apiFetch<CollectionResponse<RealityIndexItem>>("ai-reality-index" + suffix, {
+    items: fallbackScoreboard.top_ai_reality_index.filter((item) =>
+      entityType ? item.entity_type === entityType : true
+    ),
     next_cursor: null
   });
 }
@@ -128,9 +114,4 @@ export function fetchMetrics() {
     items: fallbackMetrics,
     next_cursor: null
   });
-}
-
-function labelForEntity(entityId: string) {
-  const allEntities = Object.values(fallbackCollections).flatMap((collection) => collection.items);
-  return allEntities.find((entity) => entity.id === entityId)?.name ?? entityId.replaceAll("_", " ");
 }
