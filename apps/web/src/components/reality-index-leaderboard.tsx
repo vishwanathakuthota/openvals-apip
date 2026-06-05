@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 import { entityName } from "@/lib/fallback-data";
 import { cn } from "@/lib/utils";
 import type { RealityIndexItem } from "@/types/api";
@@ -14,6 +15,15 @@ export function RealityIndexLeaderboard({ items }: { items: RealityIndexItem[] }
   const [open, setOpen] = useState(false);
   const topScore = items[0]?.score ?? 0;
   const topConfidence = items[0]?.confidence;
+
+  if (!items.length) {
+    return (
+      <EmptyState
+        title="No AI Reality Index scores yet"
+        message="The leaderboard fills in after approved ROI, revenue growth, margin, and adoption metrics are available."
+      />
+    );
+  }
 
   return (
     <>

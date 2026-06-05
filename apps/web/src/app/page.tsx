@@ -20,10 +20,20 @@ export default async function HomePage() {
     <>
       <header className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-start md:justify-between">
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Global AI Scoreboard</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            OpenVals AI Profitability Intelligence Platform
+          </p>
           <h1 className="max-w-3xl text-4xl font-semibold tracking-normal md:text-5xl">Is AI profitable yet?</h1>
+          <p className="max-w-3xl text-base leading-7 text-muted-foreground">
+            APIP tracks whether AI spending is converting into revenue, margin expansion, adoption, and measurable
+            return on investment. Every headline number is paired with source count, freshness, methodology notes, and
+            a confidence score.
+          </p>
         </div>
-        <Badge className="w-fit border-primary text-primary">{scoreboard.profitability_gauge}</Badge>
+        <div className="grid gap-2">
+          <Badge className="w-fit border-primary text-primary">{scoreboard.profitability_gauge}</Badge>
+          <span className="text-sm text-muted-foreground">Launch domain: apip.openvalidations.com</span>
+        </div>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
