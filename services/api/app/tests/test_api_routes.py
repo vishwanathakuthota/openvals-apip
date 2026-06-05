@@ -248,7 +248,20 @@ def test_seeded_local_development_api_key_can_access_public_api():
     )
 
     assert response.status_code == 200
-    assert response.json()["items"]
+    companies = response.json()["items"]
+    assert companies
+    assert {item["name"] for item in companies} >= {
+        "Microsoft",
+        "Google",
+        "Meta",
+        "Amazon",
+        "NVIDIA",
+        "OpenAI",
+        "Anthropic",
+        "xAI",
+        "Mistral",
+        "Perplexity",
+    }
 
 
 def test_free_api_key_daily_rate_limit_is_enforced():
@@ -276,10 +289,19 @@ def test_metric_responses_include_confidence_engine_fields():
     assert "confidence_score" in metric
     assert "confidence_label" in metric
     assert "source_count" in metric
+    assert "coverage_score" in metric
+    assert "coverage_label" in metric
+    assert "coverage" in metric
     assert "last_updated" in metric
     assert "methodology_note" in metric
     assert metric["source_count"] >= 1
+    assert metric["coverage_score"] > 0
+    assert metric["coverage"]["tier_counts"]
     assert metric["sources"]
+    source = metric["sources"][0]
+    assert "source_tier" in source
+    assert "credibility_score" in source
+    assert source["url"].startswith("https://")
 
 
 def test_admin_csv_import_review_approval_and_audit_flow():
@@ -371,6 +393,38 @@ def test_admin_can_reject_imported_source_metric():
     )
     assert metrics.status_code == 200
     assert metrics.json()["items"] == []
+
+
+def test_admin_manual_research_entry_connector_creates_pending_source_metric():
+    client = build_client()
+    headers = auth_headers(client)
+
+    response = client.post(
+        "/api/v1/admin/research-entries",
+        headers=headers,
+        json={
+            "company": "Mistral",
+            "year": 2026,
+            "metric_type": "adoption",
+            "value": 58,
+            "title": "Mistral AI beta research note",
+            "source_url": "https://mistral.ai/news",
+            "source_type": "public_company_statement",
+            "publisher": "Mistral AI",
+            "published_at": "2026-05-01T00:00:00+00:00",
+            "methodology_note": (
+                "Manual beta research entry created from Mistral public company statements "
+                "and held pending admin review before publication."
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["company"] == "Mistral"
+    assert payload["approved_status"] == "pending"
+    assert payload["source_type"] == "public_company_statement"
+    assert payload["confidence_score"] > 0
 
 
 def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():

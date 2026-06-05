@@ -44,11 +44,22 @@ X-Request-ID: <client-request-id>
     "source_count": 4,
     "last_updated": "2026-06-04T09:00:00Z"
   },
+  "coverage": {
+    "score": 70,
+    "label": "Strong Coverage",
+    "source_count": 4,
+    "tier_counts": {
+      "Tier 1": 2,
+      "Tier 3": 2
+    }
+  },
   "sources": [
     {
       "id": "src_123",
       "title": "FY2026 Investor Presentation",
       "source_type": "investor_presentation",
+      "source_tier": 2,
+      "credibility_score": 82,
       "url": "https://example.com/report.pdf"
     }
   ]

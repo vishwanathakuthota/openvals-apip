@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import ConfidenceScore, MetricDefinition, MetricValue
+from app.domains.sources.credibility import evidence_coverage_score, source_credibility_score, source_tier
 
 
 def confidence_payload(confidence: ConfidenceScore | None) -> dict[str, object] | None:
@@ -22,11 +23,17 @@ def confidence_payload(confidence: ConfidenceScore | None) -> dict[str, object] 
 
 def metric_payload(metric: MetricValue) -> dict[str, object]:
     confidence = confidence_payload(metric.confidence_score)
+    linked_sources = [link.source for link in metric.source_links]
+    coverage = evidence_coverage_score(linked_sources)
     sources = [
         {
             "id": link.source.id,
             "title": link.source.title,
             "source_type": link.source.source_type,
+            "source_tier": source_tier(link.source.source_type),
+            "credibility_score": source_credibility_score(
+                link.source.source_type, link.source.published_at
+            ),
             "publisher": link.source.publisher,
             "url": link.source.url,
             "published_at": link.source.published_at.isoformat()
@@ -46,6 +53,15 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
         "confidence_score": confidence["score"] if confidence else None,
         "confidence_label": confidence["label"] if confidence else None,
         "source_count": confidence["source_count"] if confidence else 0,
+        "coverage_score": coverage.score,
+        "coverage_label": coverage.label,
+        "coverage": {
+            "score": coverage.score,
+            "label": coverage.label,
+            "source_count": coverage.source_count,
+            "tier_counts": coverage.tier_counts,
+            "methodology_note": coverage.methodology_note,
+        },
         "last_updated": confidence["last_updated"] if confidence else None,
         "methodology_note": confidence["methodology_note"] if confidence else metric.methodology,
         "unit": metric.metric_definition.unit,

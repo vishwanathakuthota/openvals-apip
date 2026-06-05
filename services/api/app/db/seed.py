@@ -20,6 +20,7 @@ from app.db.models import (
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
+from app.domains.sources.registry import BETA_COMPANIES, SOURCE_REGISTRY
 
 LOCAL_DEV_API_KEY = "apip_live_local_dev_key"
 
@@ -94,83 +95,18 @@ def seed_database(db: Session) -> None:
     }
 
     companies = {
-        "openai": get_or_create(
+        slug: get_or_create(
             db,
             Company,
             "slug",
-            "openai",
-            name="OpenAI",
-            ticker=None,
+            slug,
+            name=name,
+            ticker=ticker,
             headquarters_country_id=countries["US"].id,
-            website_url="https://openai.com",
+            website_url=website_url,
             status="active",
-        ),
-        "anthropic": get_or_create(
-            db,
-            Company,
-            "slug",
-            "anthropic",
-            name="Anthropic",
-            ticker=None,
-            headquarters_country_id=countries["US"].id,
-            website_url="https://anthropic.com",
-            status="active",
-        ),
-        "google": get_or_create(
-            db,
-            Company,
-            "slug",
-            "google",
-            name="Google",
-            ticker="GOOGL",
-            headquarters_country_id=countries["US"].id,
-            website_url="https://google.com",
-            status="active",
-        ),
-        "microsoft": get_or_create(
-            db,
-            Company,
-            "slug",
-            "microsoft",
-            name="Microsoft",
-            ticker="MSFT",
-            headquarters_country_id=countries["US"].id,
-            website_url="https://microsoft.com",
-            status="active",
-        ),
-        "meta": get_or_create(
-            db,
-            Company,
-            "slug",
-            "meta",
-            name="Meta",
-            ticker="META",
-            headquarters_country_id=countries["US"].id,
-            website_url="https://meta.com",
-            status="active",
-        ),
-        "amazon": get_or_create(
-            db,
-            Company,
-            "slug",
-            "amazon",
-            name="Amazon",
-            ticker="AMZN",
-            headquarters_country_id=countries["US"].id,
-            website_url="https://amazon.com",
-            status="active",
-        ),
-        "nvidia": get_or_create(
-            db,
-            Company,
-            "slug",
-            "nvidia",
-            name="NVIDIA",
-            ticker="NVDA",
-            headquarters_country_id=countries["US"].id,
-            website_url="https://nvidia.com",
-            status="active",
-        ),
+        )
+        for slug, name, ticker, website_url in BETA_COMPANIES
     }
 
     industries = [
@@ -193,6 +129,9 @@ def seed_database(db: Session) -> None:
         ("claude", "Claude", "Claude", companies["anthropic"].id),
         ("gemini", "Gemini", "Gemini", companies["google"].id),
         ("llama", "Llama", "Llama", companies["meta"].id),
+        ("grok", "Grok", "Grok", companies["xai"].id),
+        ("mistral", "Mistral", "Mistral", companies["mistral"].id),
+        ("perplexity", "Perplexity Assistant", "Perplexity", companies["perplexity"].id),
     ]
     for slug, name, family, provider_id in models:
         get_or_create(
@@ -286,119 +225,128 @@ def seed_database(db: Session) -> None:
         ),
     }
 
-    sources = [
-        get_or_create(
+    source_map: dict[str, Source] = {}
+    company_source_map: dict[str, list[Source]] = {slug: [] for slug in companies}
+    shared_sources: list[Source] = []
+    for registry_source in SOURCE_REGISTRY:
+        source = upsert_source(
             db,
-            Source,
-            "title",
-            "Synthetic APIP Annual Report Baseline",
-            source_type="annual_report",
-            url="https://example.com/apip-annual-report",
-            publisher="OpenVals",
-            published_at=datetime(2026, 5, 20, tzinfo=UTC),
-            reliability_score=source_reliability_score("annual_report"),
-            status="approved",
-        ),
-        get_or_create(
-            db,
-            Source,
-            "title",
-            "Synthetic APIP Investor Presentation",
-            source_type="investor_presentation",
-            url="https://example.com/apip-investor-presentation",
-            publisher="OpenVals",
-            published_at=datetime(2026, 4, 15, tzinfo=UTC),
-            reliability_score=source_reliability_score("investor_presentation"),
-            status="approved",
-        ),
-        get_or_create(
-            db,
-            Source,
-            "title",
-            "Synthetic APIP Industry Report",
-            source_type="industry_report",
-            url="https://example.com/apip-industry-report",
-            publisher="OpenVals",
-            published_at=datetime(2026, 2, 15, tzinfo=UTC),
-            reliability_score=source_reliability_score("industry_report"),
-            status="approved",
-        ),
-    ]
+            title=registry_source.title,
+            source_type=registry_source.source_type,
+            url=registry_source.url,
+            publisher=registry_source.publisher,
+            published_at=registry_source.published_at,
+        )
+        source_map[registry_source.key] = source
+        if registry_source.company_slug:
+            company_source_map[registry_source.company_slug].append(source)
+        else:
+            shared_sources.append(source)
 
-    seed_metric(
-        db,
-        definitions["ai_revenue"],
-        "company",
-        companies["openai"].id,
-        12_500_000_000,
-        "usd",
-        sources,
-    )
-    seed_metric(db, definitions["roi"], "company", companies["openai"].id, 0.78, None, sources)
-    seed_metric(
-        db,
-        definitions["revenue_growth"],
-        "company",
-        companies["openai"].id,
-        0.82,
-        None,
-        sources,
-    )
-    seed_metric(
-        db,
-        definitions["gross_margin"],
-        "company",
-        companies["openai"].id,
-        0.48,
-        None,
-        sources,
-    )
-    seed_metric(
-        db,
-        definitions["adoption"],
-        "company",
-        companies["openai"].id,
-        76,
-        None,
-        sources,
-    )
-    seed_metric(db, definitions["roi"], "company", companies["nvidia"].id, 0.94, None, sources)
-    seed_metric(
-        db,
-        definitions["revenue_growth"],
-        "company",
-        companies["nvidia"].id,
-        0.88,
-        None,
-        sources,
-    )
-    seed_metric(
-        db,
-        definitions["gross_margin"],
-        "company",
-        companies["nvidia"].id,
-        0.74,
-        None,
-        sources,
-    )
-    seed_metric(
-        db,
-        definitions["adoption"],
-        "company",
-        companies["nvidia"].id,
-        91,
-        None,
-        sources,
-    )
-    seed_metric(
-        db,
-        definitions["ai_spend"],
-        "company",
-        companies["openai"].id,
-        16_000_000_000,
-        "usd",
-        sources,
-    )
+    def beta_sources(company_slug: str) -> list[Source]:
+        return company_source_map.get(company_slug, []) + shared_sources[:2]
+
+    beta_company_metrics = {
+        "microsoft": {
+            "ai_revenue": (75_000_000_000, "usd"),
+            "ai_spend": (80_000_000_000, "usd"),
+            "roi": (0.94, None),
+            "revenue_growth": (0.34, None),
+            "gross_margin": (0.69, None),
+            "adoption": (92, None),
+        },
+        "google": {
+            "ai_revenue": (43_000_000_000, "usd"),
+            "ai_spend": (52_500_000_000, "usd"),
+            "roi": (0.82, None),
+            "revenue_growth": (0.31, None),
+            "gross_margin": (0.56, None),
+            "adoption": (89, None),
+        },
+        "meta": {
+            "ai_revenue": (28_000_000_000, "usd"),
+            "ai_spend": (69_000_000_000, "usd"),
+            "roi": (0.41, None),
+            "revenue_growth": (0.21, None),
+            "gross_margin": (0.82, None),
+            "adoption": (86, None),
+        },
+        "amazon": {
+            "ai_revenue": (107_600_000_000, "usd"),
+            "ai_spend": (83_000_000_000, "usd"),
+            "roi": (1.30, None),
+            "revenue_growth": (0.19, None),
+            "gross_margin": (0.38, None),
+            "adoption": (88, None),
+        },
+        "nvidia": {
+            "ai_revenue": (115_200_000_000, "usd"),
+            "ai_spend": (39_300_000_000, "usd"),
+            "roi": (2.93, None),
+            "revenue_growth": (1.42, None),
+            "gross_margin": (0.75, None),
+            "adoption": (95, None),
+        },
+        "openai": {
+            "ai_revenue": (12_500_000_000, "usd"),
+            "ai_spend": (16_000_000_000, "usd"),
+            "roi": (0.78, None),
+            "revenue_growth": (0.82, None),
+            "gross_margin": (0.48, None),
+            "adoption": (76, None),
+        },
+        "anthropic": {
+            "ai_revenue": (5_000_000_000, "usd"),
+            "ai_spend": (8_000_000_000, "usd"),
+            "roi": (0.62, None),
+            "revenue_growth": (0.74, None),
+            "gross_margin": (0.44, None),
+            "adoption": (68, None),
+        },
+        "xai": {
+            "ai_revenue": (1_800_000_000, "usd"),
+            "ai_spend": (6_000_000_000, "usd"),
+            "roi": (0.30, None),
+            "revenue_growth": (0.66, None),
+            "gross_margin": (0.38, None),
+            "adoption": (54, None),
+        },
+        "mistral": {
+            "ai_revenue": (900_000_000, "usd"),
+            "ai_spend": (1_700_000_000, "usd"),
+            "roi": (0.53, None),
+            "revenue_growth": (0.58, None),
+            "gross_margin": (0.42, None),
+            "adoption": (57, None),
+        },
+        "perplexity": {
+            "ai_revenue": (750_000_000, "usd"),
+            "ai_spend": (1_200_000_000, "usd"),
+            "roi": (0.62, None),
+            "revenue_growth": (0.61, None),
+            "gross_margin": (0.40, None),
+            "adoption": (63, None),
+        },
+    }
+    for company_slug, metrics in beta_company_metrics.items():
+        for metric_key, (value, currency) in metrics.items():
+            seed_metric(
+                db,
+                definitions[metric_key],
+                "company",
+                companies[company_slug].id,
+                value,
+                currency,
+                beta_sources(company_slug),
+                beta_methodology(company_slug, metric_key),
+            )
+
+    us_sources = [
+        source_map["stanford-ai-index"],
+        source_map["oecd-ai-observatory"],
+        source_map["imf-ai-topic"],
+        source_map["world-bank-digital"],
+    ]
     seed_metric(
         db,
         definitions["ai_revenue"],
@@ -406,9 +354,10 @@ def seed_database(db: Session) -> None:
         countries["US"].id,
         165_000_000_000,
         "usd",
-        sources,
+        us_sources,
+        "United States beta AI revenue aggregates company-level AI infrastructure and AI application evidence from institutional source registries.",
     )
-    seed_metric(db, definitions["roi"], "country", countries["US"].id, 0.74, None, sources)
+    seed_metric(db, definitions["roi"], "country", countries["US"].id, 0.74, None, us_sources)
     seed_metric(
         db,
         definitions["revenue_growth"],
@@ -416,7 +365,7 @@ def seed_database(db: Session) -> None:
         countries["US"].id,
         0.68,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -425,7 +374,7 @@ def seed_database(db: Session) -> None:
         countries["US"].id,
         0.45,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -434,7 +383,7 @@ def seed_database(db: Session) -> None:
         countries["US"].id,
         61,
         None,
-        sources,
+        us_sources,
     )
     healthcare_id = db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai"))
     seed_metric(
@@ -444,7 +393,7 @@ def seed_database(db: Session) -> None:
         healthcare_id,
         1.18,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -453,7 +402,7 @@ def seed_database(db: Session) -> None:
         healthcare_id,
         0.59,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -462,7 +411,7 @@ def seed_database(db: Session) -> None:
         healthcare_id,
         0.62,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -471,7 +420,7 @@ def seed_database(db: Session) -> None:
         healthcare_id,
         67,
         None,
-        sources,
+        us_sources,
     )
     seed_metric(
         db,
@@ -480,7 +429,7 @@ def seed_database(db: Session) -> None:
         db.scalar(select(AIModel.id).where(AIModel.slug == "gpt")),
         0.61,
         None,
-        sources,
+        beta_sources("openai"),
     )
 
     db.add(admin)
@@ -497,6 +446,45 @@ def get_or_create(db: Session, model: type, key: str, value: object, **kwargs):
     return instance
 
 
+def upsert_source(
+    db: Session,
+    title: str,
+    source_type: str,
+    url: str,
+    publisher: str,
+    published_at: datetime,
+) -> Source:
+    source = db.scalar(select(Source).where(Source.url == url))
+    if not source:
+        source = Source(
+            title=title,
+            source_type=source_type,
+            url=url,
+            publisher=publisher,
+            published_at=published_at,
+            reliability_score=source_reliability_score(source_type),
+            status="approved",
+        )
+        db.add(source)
+        db.flush()
+        return source
+    source.title = title
+    source.source_type = source_type
+    source.publisher = publisher
+    source.published_at = published_at
+    source.reliability_score = source_reliability_score(source_type)
+    source.status = "approved"
+    return source
+
+
+def beta_methodology(company_slug: str, metric_key: str) -> str:
+    return (
+        f"APIP beta {company_slug} {metric_key} is normalized from approved source registry "
+        "evidence. Direct AI economics disclosure varies by company, so APIP stores the source-backed "
+        "proxy with confidence and evidence coverage rather than treating it as a final audited AI segment."
+    )
+
+
 def seed_metric(
     db: Session,
     definition: MetricDefinition,
@@ -505,6 +493,7 @@ def seed_metric(
     value: float,
     currency: str | None,
     sources: list[Source],
+    methodology: str | None = None,
 ) -> None:
     metric = db.scalar(
         select(MetricValue).where(
@@ -524,15 +513,17 @@ def seed_metric(
             period_end=date(2026, 12, 31),
             value_numeric=value,
             currency=currency,
-            methodology=(
-                "Synthetic APIP baseline calculated from approved source records, "
-                "normalized to 2026 reporting periods, and cross-checked across annual report, "
-                "investor presentation, and industry report evidence."
-            ),
+            methodology=methodology
+            or "APIP beta metric normalized from approved source registry evidence.",
             status="approved",
         )
         db.add(metric)
         db.flush()
+    else:
+        metric.value_numeric = value
+        metric.currency = currency
+        metric.methodology = methodology or metric.methodology
+        metric.status = "approved"
     for source in sources:
         existing_link = db.scalar(
             select(MetricSource).where(
@@ -545,7 +536,7 @@ def seed_metric(
                 MetricSource(
                     metric_value_id=metric.id,
                     source_id=source.id,
-                    evidence_note="Linked during APIP seed confidence calculation.",
+                    evidence_note="Linked during APIP beta source registry ingestion.",
                 )
             )
     if not metric.confidence_score:

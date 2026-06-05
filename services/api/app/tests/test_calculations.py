@@ -7,6 +7,7 @@ from app.domains.confidence.service import (
     source_reliability_score,
 )
 from app.domains.indexes.service import calculate_ai_reality_index
+from app.domains.sources.credibility import coverage_label, source_credibility_score, source_tier
 
 
 def test_confidence_formula_matches_prd_weights():
@@ -20,10 +21,23 @@ def test_source_reliability_scores_match_prd():
     assert source_reliability_score("annual_report") == 95
     assert source_reliability_score("earnings_call") == 90
     assert source_reliability_score("investor_presentation") == 80
+    assert source_reliability_score("public_company_statement") == 75
     assert source_reliability_score("analyst_estimate") == 70
     assert source_reliability_score("industry_report") == 65
+    assert source_reliability_score("institutional_dataset") == 65
     assert source_reliability_score("news_article") == 50
     assert source_reliability_score("community_estimate") == 30
+
+
+def test_source_credibility_engine_tiers_and_scores():
+    assert source_tier("sec_filing") == 1
+    assert source_tier("public_company_statement") == 2
+    assert source_tier("institutional_dataset") == 3
+    assert source_tier("news_article") == 4
+    assert source_credibility_score("sec_filing", datetime(2026, 6, 1, tzinfo=UTC)) >= 95
+    assert coverage_label(90) == "Full Coverage"
+    assert coverage_label(70) == "Strong Coverage"
+    assert coverage_label(50) == "Partial Coverage"
 
 
 def test_freshness_scores_match_prd_buckets():
