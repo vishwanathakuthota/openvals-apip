@@ -1,0 +1,2 @@
+name,slug,model_family,provider_company_slug,status,source_url,source_type,source_title,publisher,published_at,methodology_note
+Example Reasoner 1,example-reasoner-1,Example Reasoner,example-ai-corp,active,https://example.com/models/example-reasoner-1,investor_presentation,Example Reasoner 1 Model Release,Example AI Corp,2026-05-01T00:00:00+00:00,Model record imported from a provider presentation and normalized to APIP model catalog fields with source attribution.

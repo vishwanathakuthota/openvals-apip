@@ -26,6 +26,17 @@ type AuditLog = {
   target_type: string;
   created_at?: string | null;
 };
+type LineageRecord = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  source_url: string;
+  source_type: string;
+  confidence_score: number;
+  imported_by?: string | null;
+  imported_at?: string | null;
+  action: string;
+};
 type DashboardCounts = Record<string, number>;
 
 const resources = [
@@ -45,9 +56,12 @@ export function AdminPortal() {
   const [items, setItems] = useState<Record<string, AdminItem[]>>({});
   const [counts, setCounts] = useState<DashboardCounts>({});
   const [sourceMetrics, setSourceMetrics] = useState<SourceMetric[]>([]);
+  const [lineage, setLineage] = useState<LineageRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
+  const [catalogFile, setCatalogFile] = useState<File | null>(null);
+  const [catalogImportType, setCatalogImportType] = useState("companies");
   const [message, setMessage] = useState("Admin login required");
   const [busy, setBusy] = useState(false);
   const config = useMemo(() => resources.find((resource) => resource.key === active), [active]);
@@ -110,9 +124,10 @@ export function AdminPortal() {
       return;
     }
     const authHeader = { Authorization: `Bearer ${currentToken}` };
-    const [dashboard, metrics, audits, ...resourceResponses] = await Promise.all([
+    const [dashboard, metrics, lineageResponse, audits, ...resourceResponses] = await Promise.all([
       fetch("/api/admin/dashboard", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/source-metrics", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/lineage", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/audit-logs", { headers: authHeader }).then((response) => response.json()),
       ...resources.map((resource) =>
         fetch(`/api/admin/${resource.key}`, { headers: authHeader }).then((response) => response.json())
@@ -120,6 +135,7 @@ export function AdminPortal() {
     ]);
     setCounts(dashboard.counts ?? {});
     setSourceMetrics(metrics.items ?? []);
+    setLineage(lineageResponse.items ?? []);
     setAuditLogs(audits.items ?? []);
     setItems(Object.fromEntries(resources.map((resource, index) => [resource.key, resourceResponses[index].items ?? []])));
   }, [token]);
@@ -197,6 +213,26 @@ export function AdminPortal() {
       await refreshAll();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "CSV import failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadCatalogCsv() {
+    if (!catalogFile) {
+      setMessage("Select a catalog CSV file");
+      return;
+    }
+    setBusy(true);
+    const body = new FormData();
+    body.append("file", catalogFile);
+    try {
+      const data = await adminFetch(`imports/catalog/${catalogImportType}/csv`, { method: "POST", body });
+      setCatalogFile(null);
+      setMessage(`Imported ${data.imported_count} ${data.entity_type}`);
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Catalog import failed");
     } finally {
       setBusy(false);
     }
@@ -329,10 +365,10 @@ export function AdminPortal() {
             Trigger Seed Import
           </Button>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <label className="flex min-h-10 flex-1 cursor-pointer items-center gap-3 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
             <FileUp className="h-4 w-4" aria-hidden />
-            <span className="truncate">{file?.name ?? "Select CSV file"}</span>
+            <span className="truncate">{file?.name ?? "Select financial metrics CSV"}</span>
             <input
               accept=".csv,text/csv"
               className="sr-only"
@@ -342,7 +378,33 @@ export function AdminPortal() {
           </label>
           <Button disabled={busy} onClick={uploadCsv}>
             <FileUp className="h-4 w-4" aria-hidden />
-            Upload CSV
+            Upload Metrics
+          </Button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_auto]">
+          <select
+            className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+            onChange={(event) => setCatalogImportType(event.target.value)}
+            value={catalogImportType}
+          >
+            <option value="companies">Companies</option>
+            <option value="industries">Industries</option>
+            <option value="countries">Countries</option>
+            <option value="models">Models</option>
+          </select>
+          <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
+            <FileUp className="h-4 w-4" aria-hidden />
+            <span className="truncate">{catalogFile?.name ?? "Select catalog CSV"}</span>
+            <input
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => setCatalogFile(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </label>
+          <Button disabled={busy} onClick={uploadCatalogCsv}>
+            <FileUp className="h-4 w-4" aria-hidden />
+            Upload Catalog
           </Button>
         </div>
         <ImportedMetricsTable
@@ -351,6 +413,7 @@ export function AdminPortal() {
           onApprove={(id) => action(`source-metrics/${id}/approve`, "Metric approved")}
           onReject={(id) => action(`source-metrics/${id}/reject`, "Metric rejected")}
         />
+        <DataLineageTable items={lineage} />
       </section>
 
       <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
@@ -480,6 +543,44 @@ function ImportedMetricsTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function DataLineageTable({ items }: { items: LineageRecord[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] text-left text-sm">
+        <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="py-3 pr-3">Entity</th>
+            <th className="py-3 pr-3">Source</th>
+            <th className="py-3 pr-3">Confidence</th>
+            <th className="py-3 pr-3">Imported By</th>
+            <th className="py-3 pr-3">Imported Date</th>
+            <th className="py-3 pr-3">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((record) => (
+            <tr className="border-b border-border/70" key={record.id}>
+              <td className="py-3 pr-3">{record.entity_type.replaceAll("_", " ")}</td>
+              <td className="max-w-[320px] py-3 pr-3">
+                <a className="truncate text-primary underline-offset-4 hover:underline" href={record.source_url}>
+                  {record.source_type.replaceAll("_", " ")}
+                </a>
+              </td>
+              <td className="py-3 pr-3 tabular-nums">{record.confidence_score.toFixed(1)}</td>
+              <td className="py-3 pr-3">{record.imported_by ?? "Admin"}</td>
+              <td className="py-3 pr-3">{formatDate(record.imported_at)}</td>
+              <td className="py-3 pr-3">
+                <Badge className={statusClass(record.action)}>{record.action}</Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No catalog lineage records yet.</p> : null}
     </div>
   );
 }

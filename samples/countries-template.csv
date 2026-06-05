@@ -1,0 +1,2 @@
+name,slug,iso_code,region,source_url,source_type,source_title,publisher,published_at,methodology_note
+United States,united-states,US,North America,https://example.com/statistical-handbook/countries-2026,industry_report,Country Classification Handbook,Example Data Bureau,2026-02-20T00:00:00+00:00,Country record imported from a published classification reference and normalized to APIP catalog fields with source attribution.

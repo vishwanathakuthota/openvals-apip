@@ -1,0 +1,2 @@
+name,slug,ticker,website_url,headquarters_country_iso_code,status,source_url,source_type,source_title,publisher,published_at,methodology_note
+Example AI Corp,example-ai-corp,EXAI,https://example.com,US,active,https://example.com/investors/annual-report-2025,annual_report,Example AI Corp 2025 Annual Report,Example AI Corp,2026-04-15T00:00:00+00:00,Company record imported from the annual report and normalized to APIP catalog fields with source attribution.

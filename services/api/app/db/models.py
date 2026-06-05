@@ -130,6 +130,26 @@ class Source(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
 
 
+class DataLineage(Base):
+    __tablename__ = "data_lineage"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    entity_type: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    source_url: Mapped[str] = mapped_column(String(1000))
+    source_type: Mapped[str] = mapped_column(String(120), index=True)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    imported_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    import_batch_id: Mapped[str] = mapped_column(String(36), index=True)
+    action: Mapped[str] = mapped_column(String(80), default="imported", index=True)
+    metadata_json: Mapped[str] = mapped_column(Text)
+
+    source: Mapped[Source] = relationship()
+    imported_by: Mapped[User] = relationship()
+
+
 class SourceMetric(TimestampMixin, Base):
     __tablename__ = "source_metrics"
 

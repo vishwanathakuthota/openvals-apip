@@ -1,0 +1,2 @@
+name,slug,status,source_url,source_type,source_title,publisher,published_at,methodology_note
+AI Infrastructure,ai-infrastructure,active,https://example.com/research/ai-infrastructure-2026,industry_report,AI Infrastructure Market Classification,Example Research Group,2026-03-01T00:00:00+00:00,Industry record imported from a published industry taxonomy and normalized to APIP catalog fields with source attribution.

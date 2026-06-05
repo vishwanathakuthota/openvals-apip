@@ -371,3 +371,132 @@ def test_admin_can_reject_imported_source_metric():
     )
     assert metrics.status_code == 200
     assert metrics.json()["items"] == []
+
+
+def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():
+    client = build_client()
+    headers = auth_headers(client)
+
+    country_csv = (
+        b"name,slug,iso_code,region,source_url,source_type,source_title,publisher,published_at,methodology_note\n"
+        b"Australia,australia,AU,Oceania,https://example.com/australia-country,industry_report,"
+        b"Australia Country Reference,Example Data Bureau,2026-01-15T00:00:00+00:00,"
+        b"Country catalog row validated from a published source and normalized for APIP lineage tracking.\n"
+    )
+    country_upload = client.post(
+        "/api/v1/admin/imports/catalog/countries/csv",
+        headers=headers,
+        files={"file": ("countries.csv", country_csv, "text/csv")},
+    )
+    assert country_upload.status_code == 201
+    country_item = country_upload.json()["items"][0]
+    assert country_item["entity_type"] == "countries"
+    assert country_item["source_type"] == "industry_report"
+    assert country_item["confidence_score"] > 0
+    assert country_item["imported_by"]
+    assert country_item["imported_at"]
+
+    company_csv = (
+        b"name,slug,ticker,website_url,headquarters_country_iso_code,status,source_url,source_type,"
+        b"source_title,publisher,published_at,methodology_note\n"
+        b"Real Data Co,real-data-co,RDC,https://example.com/real-data-co,AU,active,"
+        b"https://example.com/real-data-co-sec,sec_filing,Real Data Co Filing,Real Data Co,"
+        b"2026-02-01T00:00:00+00:00,"
+        b"Company catalog row validated from a filing and normalized for APIP lineage tracking.\n"
+    )
+    company_upload = client.post(
+        "/api/v1/admin/imports/catalog/company/csv",
+        headers=headers,
+        files={"file": ("companies.csv", company_csv, "text/csv")},
+    )
+    assert company_upload.status_code == 201
+    company_item = company_upload.json()["items"][0]
+    assert company_item["entity_type"] == "companies"
+    assert company_item["name"] == "Real Data Co"
+    assert company_item["source_url"] == "https://example.com/real-data-co-sec"
+    assert company_item["source_type"] == "sec_filing"
+    assert company_item["confidence_score"] >= country_item["confidence_score"]
+
+    industry_csv = (
+        b"name,slug,status,source_url,source_type,source_title,publisher,published_at,methodology_note\n"
+        b"Applied Automation,applied-automation,active,https://example.com/applied-automation,"
+        b"industry_report,Applied Automation Taxonomy,Example Research,2026-02-10T00:00:00+00:00,"
+        b"Industry catalog row validated from a published taxonomy and normalized for APIP lineage tracking.\n"
+    )
+    industry_upload = client.post(
+        "/api/v1/admin/imports/catalog/industries/csv",
+        headers=headers,
+        files={"file": ("industries.csv", industry_csv, "text/csv")},
+    )
+    assert industry_upload.status_code == 201
+    assert industry_upload.json()["items"][0]["entity_type"] == "industries"
+
+    model_csv = (
+        b"name,slug,model_family,provider_company_slug,status,source_url,source_type,source_title,"
+        b"publisher,published_at,methodology_note\n"
+        b"Real Reasoner,real-reasoner,Real Reasoner,real-data-co,active,"
+        b"https://example.com/real-reasoner-presentation,investor_presentation,"
+        b"Real Reasoner Model Brief,Real Data Co,2026-03-01T00:00:00+00:00,"
+        b"Model catalog row validated from a provider presentation and normalized for APIP lineage tracking.\n"
+    )
+    model_upload = client.post(
+        "/api/v1/admin/imports/catalog/models/csv",
+        headers=headers,
+        files={"file": ("models.csv", model_csv, "text/csv")},
+    )
+    assert model_upload.status_code == 201
+    assert model_upload.json()["items"][0]["entity_type"] == "models"
+
+    lineage = client.get("/api/v1/admin/lineage?entity_type=companies", headers=headers)
+    assert lineage.status_code == 200
+    company_lineage = lineage.json()["items"][0]
+    assert company_lineage["source_url"] == "https://example.com/real-data-co-sec"
+    assert company_lineage["source_type"] == "sec_filing"
+    assert company_lineage["confidence_score"] > 0
+    assert company_lineage["imported_by"] == "APIP Admin"
+    assert company_lineage["imported_at"]
+    assert company_lineage["metadata"]["source_url"] == "https://example.com/real-data-co-sec"
+
+    public_companies = client.get("/api/v1/companies", headers=api_key_headers(client))
+    assert public_companies.status_code == 200
+    assert any(item["name"] == "Real Data Co" for item in public_companies.json()["items"])
+
+    audit_logs = client.get("/api/v1/admin/audit-logs", headers=headers)
+    actions = {item["action"] for item in audit_logs.json()["items"]}
+    assert {"country.imported", "company.imported", "industry.imported", "model.imported"} <= actions
+
+
+def test_admin_catalog_csv_import_validates_required_source_fields():
+    client = build_client()
+    headers = auth_headers(client)
+    invalid_csv = b"name,slug,ticker\nMissing Source Co,missing-source-co,MSC\n"
+
+    response = client.post(
+        "/api/v1/admin/imports/catalog/companies/csv",
+        headers=headers,
+        files={"file": ("companies.csv", invalid_csv, "text/csv")},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["code"] == "invalid_csv_template"
+    assert "source_url" in detail["message"]
+    assert "source_type" in detail["message"]
+
+
+def test_admin_catalog_csv_import_validates_country_iso_code():
+    client = build_client()
+    headers = auth_headers(client)
+    invalid_csv = (
+        b"name,slug,iso_code,region,source_url,source_type\n"
+        b"Invalid Country,invalid-country,USA,Nowhere,https://example.com/country,industry_report\n"
+    )
+
+    response = client.post(
+        "/api/v1/admin/imports/catalog/countries/csv",
+        headers=headers,
+        files={"file": ("countries.csv", invalid_csv, "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "invalid_csv_row"
