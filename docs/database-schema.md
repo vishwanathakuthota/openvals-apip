@@ -66,21 +66,22 @@ Indexes:
 | --- | --- | --- |
 | id | uuid | Primary key |
 | name | text | Display name |
+| key_prefix | text | Non-secret visible prefix |
 | key_hash | text | Hashed API key |
-| prefix | text | Non-secret visible prefix |
-| owner_user_id | uuid | FK to `users.id`, nullable for system keys |
-| scopes | text[] | Example: `public:read`, `metrics:read` |
-| rate_limit_per_minute | integer | Required |
+| plan | text | `free`, `pro`, `enterprise` |
+| daily_limit | integer | `100`, `5000`, or null for enterprise |
 | status | text | `active`, `revoked` |
+| created_by_user_id | uuid | FK to `users.id`, nullable for system keys |
 | last_used_at | timestamptz | Nullable |
-| expires_at | timestamptz | Nullable |
+| usage_count_today | integer | Daily usage counter |
+| usage_window_start | date | Counter window date |
 | created_at | timestamptz | Required |
 | updated_at | timestamptz | Required |
 
 Indexes:
 
 - Unique index on `key_hash`.
-- Index on `(status, expires_at)`.
+- Indexes on `key_prefix`, `plan`, and `status`.
 
 ## Catalog Tables
 

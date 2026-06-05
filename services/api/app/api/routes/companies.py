@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import Company
 from app.domains.metrics.repository import entity_metrics
 
@@ -13,7 +13,7 @@ router = APIRouter()
 def list_companies(
     q: str | None = None,
     limit: int = 50,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     stmt = select(Company).where(Company.status == "active").order_by(Company.name).limit(limit)
@@ -26,7 +26,7 @@ def list_companies(
 @router.get("/companies/{company_id}")
 def get_company(
     company_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     company = db.get(Company, company_id)
@@ -38,7 +38,7 @@ def get_company(
 @router.get("/companies/{company_id}/metrics")
 def get_company_metrics(
     company_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     return {"items": entity_metrics(db, "company", company_id)}

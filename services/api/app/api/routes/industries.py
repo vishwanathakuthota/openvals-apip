@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import Industry
 from app.domains.metrics.repository import entity_metrics
 
@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/industries")
-def list_industries(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)):
+def list_industries(_: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)):
     items = db.scalars(
         select(Industry).where(Industry.status == "active").order_by(Industry.name)
     ).all()
@@ -20,7 +20,7 @@ def list_industries(_: dict[str, str] = Depends(require_jwt), db: Session = Depe
 @router.get("/industries/{industry_id}")
 def get_industry(
     industry_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     industry = db.get(Industry, industry_id)
@@ -32,7 +32,7 @@ def get_industry(
 @router.get("/industries/{industry_id}/metrics")
 def get_industry_metrics(
     industry_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     return {"items": entity_metrics(db, "industry", industry_id)}

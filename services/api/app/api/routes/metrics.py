@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.domains.metrics.repository import list_metric_definitions, search_metric_values
 
 router = APIRouter()
 
 
 @router.get("/metrics")
-def list_metrics(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)):
+def list_metrics(_: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)):
     return {"items": list_metric_definitions(db)}
 
 
@@ -18,7 +18,7 @@ def search(
     entity_id: str | None = None,
     metric_key: str | None = None,
     confidence_min: float | None = None,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     return {

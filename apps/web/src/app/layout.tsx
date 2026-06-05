@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarChart3, Building2, Calculator, Globe2, Landmark, Orbit, ShieldCheck } from "lucide-react";
+import { BarChart3, Building2, Calculator, Code2, Globe2, Landmark, Orbit, ShieldCheck } from "lucide-react";
 
 import "../styles/globals.css";
 
@@ -16,7 +16,8 @@ const navItems = [
   { href: "/countries", label: "Countries", icon: Globe2 },
   { href: "/models", label: "Models", icon: ShieldCheck },
   { href: "/reality-index", label: "AI Reality Index", icon: Orbit },
-  { href: "/calculator", label: "ROI Calculator", icon: Calculator }
+  { href: "/calculator", label: "ROI Calculator", icon: Calculator },
+  { href: "/developers", label: "Developers", icon: Code2 }
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

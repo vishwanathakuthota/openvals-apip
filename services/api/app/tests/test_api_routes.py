@@ -43,26 +43,39 @@ def auth_headers(client: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def api_key_headers(client: TestClient, plan: str = "pro") -> dict[str, str]:
+    response = client.post(
+        "/api/v1/admin/api-keys",
+        headers=auth_headers(client),
+        json={"name": f"{plan.title()} test key", "plan": plan},
+    )
+    assert response.status_code == 201
+    return {"X-API-Key": response.json()["api_key"]}
+
+
 def test_backend_v1_rest_endpoints_return_seeded_data():
     client = build_client()
-    headers = auth_headers(client)
+    headers = api_key_headers(client)
 
     for path in [
+        "/api/v1/scoreboard",
         "/api/v1/companies",
         "/api/v1/industries",
         "/api/v1/countries",
         "/api/v1/models",
         "/api/v1/metrics",
         "/api/v1/metrics/search",
+        "/api/v1/sources",
     ]:
         response = client.get(path, headers=headers)
         assert response.status_code == 200
-        assert response.json()["items"]
+        if "items" in response.json():
+            assert response.json()["items"]
 
 
 def test_confidence_endpoint_returns_metric_confidence():
     client = build_client()
-    headers = auth_headers(client)
+    headers = api_key_headers(client)
     metrics = client.get("/api/v1/metrics/search", headers=headers).json()["items"]
 
     response = client.get(f"/api/v1/confidence/{metrics[0]['id']}", headers=headers)
@@ -73,7 +86,7 @@ def test_confidence_endpoint_returns_metric_confidence():
 
 def test_ai_reality_index_endpoint_returns_ranked_entity_scores():
     client = build_client()
-    headers = auth_headers(client)
+    headers = api_key_headers(client)
 
     response = client.get("/api/v1/ai-reality-index", headers=headers)
 
@@ -100,7 +113,7 @@ def test_ai_reality_index_endpoint_returns_ranked_entity_scores():
 
 def test_ai_reality_index_endpoint_filters_by_entity_type():
     client = build_client()
-    headers = auth_headers(client)
+    headers = api_key_headers(client)
 
     response = client.get("/api/v1/ai-reality-index?entity_type=industry", headers=headers)
 
@@ -125,6 +138,15 @@ def test_admin_dashboard_catalog_management_source_management_and_seed_import():
     dashboard = client.get("/api/v1/admin/dashboard", headers=headers)
     assert dashboard.status_code == 200
     assert dashboard.json()["counts"]["companies"] >= 1
+
+    api_key = client.post(
+        "/api/v1/admin/api-keys",
+        headers=headers,
+        json={"name": "Partner API", "plan": "free"},
+    )
+    assert api_key.status_code == 201
+    assert api_key.json()["api_key"].startswith("apip_live_")
+    assert api_key.json()["daily_limit"] == 100
 
     company = client.post(
         "/api/v1/admin/companies",
@@ -193,12 +215,34 @@ def test_admin_dashboard_catalog_management_source_management_and_seed_import():
         "model.created",
         "source.approved",
         "seed_import.triggered",
+        "api_key.created",
     } <= actions
+
+
+def test_public_api_requires_api_key():
+    client = build_client()
+
+    response = client.get("/api/v1/companies")
+
+    assert response.status_code == 401
+
+
+def test_free_api_key_daily_rate_limit_is_enforced():
+    client = build_client()
+    headers = api_key_headers(client, plan="free")
+
+    for _ in range(100):
+        response = client.get("/api/v1/companies", headers=headers)
+        assert response.status_code == 200
+
+    limited = client.get("/api/v1/companies", headers=headers)
+
+    assert limited.status_code == 429
 
 
 def test_metric_responses_include_confidence_engine_fields():
     client = build_client()
-    headers = auth_headers(client)
+    headers = api_key_headers(client)
 
     response = client.get("/api/v1/metrics/search", headers=headers)
 
@@ -255,7 +299,7 @@ def test_admin_csv_import_review_approval_and_audit_flow():
 
     metrics = client.get(
         "/api/v1/metrics/search?entity_type=company&metric_key=ai_cash_flow",
-        headers=headers,
+        headers=api_key_headers(client),
     )
     assert metrics.status_code == 200
     published_metric = metrics.json()["items"][0]
@@ -299,7 +343,7 @@ def test_admin_can_reject_imported_source_metric():
 
     metrics = client.get(
         "/api/v1/metrics/search?entity_type=company&metric_key=ai_operating_cost",
-        headers=headers,
+        headers=api_key_headers(client),
     )
     assert metrics.status_code == 200
     assert metrics.json()["items"] == []

@@ -336,6 +336,41 @@ All admin routes require an admin JWT:
 Authorization: Bearer <admin-token>
 ```
 
+### GET /api/v1/admin/api-keys
+
+Lists API keys by prefix, plan, status, and usage. Plaintext keys are never returned after creation.
+
+### POST /api/v1/admin/api-keys
+
+Generates a new API key. The plaintext `api_key` is returned once.
+
+Request:
+
+```json
+{
+  "name": "Partner Integration",
+  "plan": "pro"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "key_123",
+  "name": "Partner Integration",
+  "key_prefix": "apip_live_abcd",
+  "api_key": "apip_live_abcd...",
+  "plan": "pro",
+  "daily_limit": 5000,
+  "status": "active"
+}
+```
+
+### PATCH /api/v1/admin/api-keys/{api_key_id}
+
+Updates API key name, plan, or status.
+
 ### GET /api/v1/admin/dashboard
 
 Returns admin counts for catalog entities, sources, pending imported metrics, and audit logs.
@@ -511,12 +546,13 @@ Updates role or status.
 
 ## Rate Limits
 
-Recommended defaults:
+Daily API key tiers:
 
-- Public API key: 600 requests per 5 minutes.
-- Anonymous calculator use: 60 requests per hour per IP.
-- Admin writes: 300 requests per 5 minutes per user.
-- ETL job creation: 20 requests per hour per admin.
+- Free: 100 requests per day.
+- Pro: 5,000 requests per day.
+- Enterprise: unlimited.
+
+The V1 foundation stores daily counters on `api_keys`. Redis-backed distributed limits can be layered on top of the same plan model for multi-instance deployments.
 
 ## OpenAPI Exposure
 

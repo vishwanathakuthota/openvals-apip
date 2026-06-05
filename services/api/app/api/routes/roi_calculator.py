@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_api_key
 from app.domains.calculator.service import calculate_roi
 
 router = APIRouter()
@@ -16,5 +17,8 @@ class RoiCalculatorRequest(BaseModel):
 
 
 @router.post("/roi-calculator")
-def roi_calculator(payload: RoiCalculatorRequest) -> dict[str, float | int]:
+def roi_calculator(
+    payload: RoiCalculatorRequest,
+    _: dict[str, str | int | None] = Depends(require_api_key),
+) -> dict[str, float | int]:
     return calculate_roi(**payload.model_dump())
