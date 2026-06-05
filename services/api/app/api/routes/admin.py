@@ -11,6 +11,9 @@ from app.db.models import (
     ApiKey,
     AuditLog,
     Company,
+    CompanyValidation,
+    CompanyValidationEvidence,
+    CompanyValidationSourceReview,
     ConfidenceScore,
     Country,
     DataLineage,
@@ -23,11 +26,22 @@ from app.db.models import (
     SourceMetric,
 )
 from app.db.seed import seed_database
+from app.api.routes.validations import company_validation_payload
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 from app.domains.ingestion.connectors import ManualResearchConnector
+from app.domains.validation.service import (
+    approve_validation,
+    attach_source_evidence,
+    ensure_company_validation,
+    ensure_source_review,
+    recalculate_company_validation,
+    reject_validation,
+    review_evidence,
+    review_source,
+)
 
 router = APIRouter()
 
@@ -52,6 +66,7 @@ def admin_dashboard(
             "audit_logs": len(db.scalars(select(AuditLog)).all()),
             "api_keys": len(db.scalars(select(ApiKey)).all()),
             "data_lineage": len(db.scalars(select(DataLineage)).all()),
+            "company_validations": len(db.scalars(select(CompanyValidation)).all()),
         }
     }
 
@@ -565,6 +580,171 @@ def create_manual_research_entry(
     )
     db.commit()
     return source_metric_payload(source_metric)
+
+
+@router.get("/company-validations")
+def admin_list_company_validations(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    validations = db.scalars(select(CompanyValidation).order_by(CompanyValidation.created_at)).all()
+    return {"items": [company_validation_payload(item) for item in validations]}
+
+
+@router.post("/company-validations/{company_id}/evidence", status_code=status.HTTP_201_CREATED)
+def admin_add_company_validation_evidence(
+    company_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    company = get_or_404(db, Company, company_id, "company_not_found")
+    source = get_or_404(db, Source, required_text(payload, "source_id"), "source_not_found")
+    validation = ensure_company_validation(db, company)
+    evidence = attach_source_evidence(
+        db,
+        validation,
+        source,
+        evidence_type=optional_text(payload.get("evidence_type")) or source.source_type,
+        review_status=str(payload.get("review_status") or "pending"),
+    )
+    ensure_source_review(db, validation, source, review_status=evidence.review_status)
+    recalculate_company_validation(validation)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company_validation.evidence_added",
+        target_type="company_validation",
+        target_id=validation.id,
+        metadata={"company_id": company.id, "source_id": source.id, "evidence_id": evidence.id},
+    )
+    db.commit()
+    return company_validation_payload(validation)
+
+
+@router.patch("/company-validations/evidence/{evidence_id}/review")
+def admin_review_company_validation_evidence(
+    evidence_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    evidence = get_or_404(
+        db, CompanyValidationEvidence, evidence_id, "company_validation_evidence_not_found"
+    )
+    review_evidence(
+        evidence,
+        review_status=required_text(payload, "review_status"),
+        reviewer_notes=optional_text(payload.get("reviewer_notes")),
+        reviewer_user_id=claims["sub"],
+    )
+    review = db.scalar(
+        select(CompanyValidationSourceReview).where(
+            CompanyValidationSourceReview.validation_id == evidence.validation_id,
+            CompanyValidationSourceReview.source_id == evidence.source_id,
+        )
+    )
+    if review:
+        review_source(
+            review,
+            review_status=evidence.review_status,
+            reviewer_notes=evidence.reviewer_notes,
+            reviewer_user_id=claims["sub"],
+        )
+    recalculate_company_validation(evidence.validation)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company_validation.evidence_reviewed",
+        target_type="company_validation_evidence",
+        target_id=evidence.id,
+        metadata={"review_status": evidence.review_status, "validation_id": evidence.validation_id},
+    )
+    db.commit()
+    return company_validation_payload(evidence.validation)
+
+
+@router.patch("/company-validations/source-reviews/{review_id}")
+def admin_review_company_validation_source(
+    review_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    source_review = get_or_404(
+        db, CompanyValidationSourceReview, review_id, "company_validation_source_review_not_found"
+    )
+    review_source(
+        source_review,
+        review_status=required_text(payload, "review_status"),
+        reviewer_notes=optional_text(payload.get("reviewer_notes")),
+        reviewer_user_id=claims["sub"],
+    )
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company_validation.source_reviewed",
+        target_type="company_validation_source_review",
+        target_id=source_review.id,
+        metadata={
+            "review_status": source_review.review_status,
+            "validation_id": source_review.validation_id,
+            "source_id": source_review.source_id,
+        },
+    )
+    db.commit()
+    return company_validation_payload(source_review.validation)
+
+
+@router.patch("/company-validations/{validation_id}/approve")
+def admin_approve_company_validation(
+    validation_id: str,
+    payload: dict[str, object] | None = None,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    validation = get_or_404(db, CompanyValidation, validation_id, "company_validation_not_found")
+    recalculate_company_validation(validation)
+    approve_validation(
+        validation,
+        reviewer_notes=optional_text((payload or {}).get("reviewer_notes")),
+        actor_user_id=claims["sub"],
+    )
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company_validation.approved",
+        target_type="company_validation",
+        target_id=validation.id,
+        metadata={"company_id": validation.company_id, "score": float(validation.openvals_validation_score)},
+    )
+    db.commit()
+    return company_validation_payload(validation)
+
+
+@router.patch("/company-validations/{validation_id}/reject")
+def admin_reject_company_validation(
+    validation_id: str,
+    payload: dict[str, object] | None = None,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    validation = get_or_404(db, CompanyValidation, validation_id, "company_validation_not_found")
+    reject_validation(
+        validation,
+        reviewer_notes=optional_text((payload or {}).get("reviewer_notes")),
+        actor_user_id=claims["sub"],
+    )
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="company_validation.rejected",
+        target_type="company_validation",
+        target_id=validation.id,
+        metadata={"company_id": validation.company_id},
+    )
+    db.commit()
+    return company_validation_payload(validation)
 
 
 @router.get("/lineage")

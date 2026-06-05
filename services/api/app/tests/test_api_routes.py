@@ -135,12 +135,94 @@ def test_ai_reality_index_endpoint_filters_by_entity_type():
     assert {item["entity_type"] for item in items} == {"industry"}
 
 
+def test_company_validation_dashboard_returns_seeded_beta_companies():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/company-validations", headers=headers)
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert {item["company"] for item in items} >= {
+        "Microsoft",
+        "Google",
+        "Meta",
+        "Amazon",
+        "NVIDIA",
+        "OpenAI",
+        "Anthropic",
+        "xAI",
+        "Mistral",
+        "Perplexity",
+    }
+    nvidia = next(item for item in items if item["company"] == "NVIDIA")
+    assert nvidia["openvals_validation_score"] > 0
+    assert nvidia["openvals_validation_label"]
+    assert nvidia["evidence_coverage_score"] > 0
+    assert nvidia["confidence_score"] > 0
+    assert nvidia["evidence_count"] >= 1
+    assert nvidia["evidence"][0]["source"]["url"].startswith("https://")
+    assert nvidia["source_reviews"]
+
+
 def test_admin_routes_require_admin_authentication():
     client = build_client()
 
     response = client.get("/api/v1/admin/dashboard")
 
     assert response.status_code == 401
+
+
+def test_admin_company_validation_review_and_approval_workflow():
+    client = build_client()
+    headers = auth_headers(client)
+
+    dashboard = client.get("/api/v1/admin/company-validations", headers=headers)
+    assert dashboard.status_code == 200
+    validation = next(item for item in dashboard.json()["items"] if item["company"] == "Microsoft")
+    evidence_id = validation["evidence"][0]["id"]
+    review_id = validation["source_reviews"][0]["id"]
+
+    evidence_review = client.patch(
+        f"/api/v1/admin/company-validations/evidence/{evidence_id}/review",
+        headers=headers,
+        json={
+            "review_status": "verified",
+            "reviewer_notes": "Validated against official Microsoft source.",
+        },
+    )
+    assert evidence_review.status_code == 200
+    assert evidence_review.json()["openvals_validation_score"] > 0
+
+    source_review = client.patch(
+        f"/api/v1/admin/company-validations/source-reviews/{review_id}",
+        headers=headers,
+        json={
+            "review_status": "verified",
+            "reviewer_notes": "Source remains accepted for beta validation.",
+        },
+    )
+    assert source_review.status_code == 200
+    assert source_review.json()["source_reviews"][0]["review_status"] == "verified"
+
+    approval = client.patch(
+        f"/api/v1/admin/company-validations/{validation['id']}/approve",
+        headers=headers,
+        json={"reviewer_notes": "Approved for beta company validation dashboard."},
+    )
+    assert approval.status_code == 200
+    approved = approval.json()
+    assert approved["status"] == "approved"
+    assert approved["approved_by"] == "APIP Admin"
+    assert approved["approved_at"]
+
+    audit_logs = client.get("/api/v1/admin/audit-logs", headers=headers)
+    actions = {item["action"] for item in audit_logs.json()["items"]}
+    assert {
+        "company_validation.evidence_reviewed",
+        "company_validation.source_reviewed",
+        "company_validation.approved",
+    } <= actions
 
 
 def test_admin_dashboard_catalog_management_source_management_and_seed_import():

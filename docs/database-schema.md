@@ -39,6 +39,9 @@ metric_values 1---1 confidence_scores
 
 users 1---n source_metrics
 users 1---n data_lineage
+companies 1---1 company_validations
+company_validations 1---n company_validation_evidence
+company_validations 1---n company_validation_source_reviews
 ```
 
 ## Identity and Access
@@ -258,6 +261,59 @@ Tracks real catalog imports for companies, industries, countries, and models.
 Indexes:
 
 - Indexes on `entity_type`, `entity_id`, `source_id`, `source_type`, `imported_by_user_id`, `import_batch_id`, and `action`.
+
+### company_validations
+
+Tracks OpenVals validation status for each company.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| company_id | uuid | Unique FK to `companies.id` |
+| status | text | `pending`, `in_review`, `approved`, `rejected` |
+| openvals_validation_score | numeric(5,2) | Composite validation score |
+| evidence_coverage_score | numeric(5,2) | Evidence tier coverage score |
+| confidence_score | numeric(5,2) | Average source credibility score |
+| reviewer_notes | text | Nullable reviewer notes |
+| reviewed_by_user_id | uuid | FK to `users.id`, nullable |
+| approved_by_user_id | uuid | FK to `users.id`, nullable |
+| approved_at | timestamptz | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### company_validation_evidence
+
+Stores source-backed evidence attached to a company validation.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| validation_id | uuid | FK to `company_validations.id` |
+| source_id | uuid | FK to `sources.id` |
+| evidence_type | text | Source or evidence category |
+| coverage_weight | numeric(5,2) | Contribution from source tier |
+| review_status | text | `pending`, `approved`, `verified`, `rejected` |
+| reviewer_notes | text | Nullable |
+| reviewed_by_user_id | uuid | FK to `users.id`, nullable |
+| reviewed_at | timestamptz | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### company_validation_source_reviews
+
+Tracks source review decisions for company validations.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| validation_id | uuid | FK to `company_validations.id` |
+| source_id | uuid | FK to `sources.id` |
+| review_status | text | `pending`, `approved`, `verified`, `rejected` |
+| reviewer_notes | text | Nullable |
+| reviewed_by_user_id | uuid | FK to `users.id`, nullable |
+| reviewed_at | timestamptz | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
 
 ### confidence_scores
 

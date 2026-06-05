@@ -190,6 +190,33 @@ Classifications:
 
 ### GET /api/v1/companies
 
+## Company Validations
+
+### GET /api/v1/company-validations
+
+Returns the OpenVals company validation dashboard.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "company": "NVIDIA",
+      "status": "in_review",
+      "openvals_validation_score": 92.4,
+      "openvals_validation_label": "Validated",
+      "evidence_coverage_score": 80,
+      "confidence_score": 91.8,
+      "evidence_count": 4,
+      "evidence": [],
+      "source_reviews": []
+    }
+  ],
+  "next_cursor": null
+}
+```
+
 Lists companies.
 
 Query parameters:
