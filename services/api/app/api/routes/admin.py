@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.db.models import (
     AIModel,
+    ApiKey,
     AuditLog,
     Company,
     ConfidenceScore,
@@ -23,6 +24,7 @@ from app.db.models import (
 from app.db.seed import seed_database
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
+from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 
 router = APIRouter()
 
@@ -45,8 +47,69 @@ def admin_dashboard(
                 ).all()
             ),
             "audit_logs": len(db.scalars(select(AuditLog)).all()),
+            "api_keys": len(db.scalars(select(ApiKey)).all()),
         }
     }
+
+
+@router.get("/api-keys")
+def admin_list_api_keys(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
+    return {"items": [api_key_payload(item) for item in items]}
+
+
+@router.post("/api-keys", status_code=status.HTTP_201_CREATED)
+def admin_generate_api_key(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    generated = generate_api_key(
+        db,
+        name=required_text(payload, "name"),
+        plan=str(payload.get("plan") or "free"),
+        created_by_user_id=claims["sub"],
+    )
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="api_key.created",
+        target_type="api_key",
+        target_id=generated.record.id,
+        metadata={"name": generated.record.name, "plan": generated.record.plan},
+    )
+    db.commit()
+    return {**api_key_payload(generated.record), "api_key": generated.plaintext_key}
+
+
+@router.patch("/api-keys/{api_key_id}")
+def admin_update_api_key(
+    api_key_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    api_key = get_or_404(db, ApiKey, api_key_id, "api_key_not_found")
+    if "name" in payload:
+        api_key.name = required_text(payload, "name")
+    if "plan" in payload:
+        api_key.plan = normalize_plan(str(payload["plan"]))
+        api_key.daily_limit = {"free": 100, "pro": 5000, "enterprise": None}[api_key.plan]
+    if "status" in payload:
+        api_key.status = required_text(payload, "status")
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="api_key.updated",
+        target_type="api_key",
+        target_id=api_key.id,
+        metadata={"name": api_key.name, "plan": api_key.plan, "status": api_key.status},
+    )
+    db.commit()
+    return api_key_payload(api_key)
 
 
 @router.get("/companies")

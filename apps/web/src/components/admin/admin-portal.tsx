@@ -33,7 +33,8 @@ const resources = [
   { key: "industries", label: "Industries", fields: ["name", "status"] },
   { key: "countries", label: "Countries", fields: ["name", "iso_code", "region"] },
   { key: "models", label: "Models", fields: ["name", "model_family", "status"] },
-  { key: "sources", label: "Sources", fields: ["title", "source_type", "url", "publisher", "status"] }
+  { key: "sources", label: "Sources", fields: ["title", "source_type", "url", "publisher", "status"] },
+  { key: "api-keys", label: "API Keys", fields: ["name", "plan"] }
 ] as const;
 
 export function AdminPortal() {
@@ -136,13 +137,13 @@ export function AdminPortal() {
     }
     setBusy(true);
     try {
-      await adminFetch(config.key, {
+      const data = await adminFetch(config.key, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
       setForm({});
-      setMessage(`${config.label} updated`);
+      setMessage(data.api_key ? `Created API key: ${data.api_key}` : `${config.label} updated`);
       await refreshAll();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Create failed");
@@ -383,6 +384,7 @@ function AdminTable({
   onUpdate: (id: string, payload: Record<string, string>) => void;
   resource: string;
 }) {
+  const inactiveStatus = resource === "api-keys" ? "revoked" : "archived";
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] text-left text-sm">
@@ -398,7 +400,9 @@ function AdminTable({
           {items.map((item) => (
             <tr className="border-b border-border/70" key={String(item.id)}>
               <td className="py-3 pr-3">{String(item.name ?? item.title ?? item.id)}</td>
-              <td className="py-3 pr-3">{String(item.slug ?? item.source_type ?? item.model_family ?? "")}</td>
+              <td className="py-3 pr-3">
+                {String(item.slug ?? item.source_type ?? item.model_family ?? item.key_prefix ?? "")}
+              </td>
               <td className="py-3 pr-3">
                 <Badge className={statusClass(String(item.status ?? ""))}>{String(item.status ?? "active")}</Badge>
               </td>
@@ -406,8 +410,8 @@ function AdminTable({
                 <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: "active" })} size="sm">
                   Active
                 </Button>
-                <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: "archived" })} size="sm" variant="outline">
-                  Archive
+                <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: inactiveStatus })} size="sm" variant="outline">
+                  {resource === "api-keys" ? "Revoke" : "Archive"}
                 </Button>
                 {resource === "sources" ? (
                   <>
@@ -485,7 +489,7 @@ function statusClass(status: string) {
     status === "approved" || status === "active"
       ? "border-emerald-500/50 text-emerald-300"
       : "",
-    status === "rejected" || status === "archived"
+    status === "rejected" || status === "archived" || status === "revoked"
       ? "border-red-500/50 text-red-300"
       : "",
     status === "pending" ? "border-amber-500/50 text-amber-300" : ""

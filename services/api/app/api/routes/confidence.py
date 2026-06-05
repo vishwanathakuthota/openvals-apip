@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import MetricValue
 from app.domains.metrics.repository import confidence_payload
 
@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/confidence/{metric_value_id}")
 def get_confidence(
     metric_value_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     metric = db.get(MetricValue, metric_value_id)

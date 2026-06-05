@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -39,6 +39,24 @@ class User(TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(40), default="analyst", index=True)
     status: Mapped[str] = mapped_column(String(40), default="active", index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+
+
+class ApiKey(TimestampMixin, Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    name: Mapped[str] = mapped_column(String(255))
+    key_prefix: Mapped[str] = mapped_column(String(32), index=True)
+    key_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    plan: Mapped[str] = mapped_column(String(40), default="free", index=True)
+    daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(40), default="active", index=True)
+    created_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    usage_count_today: Mapped[int] = mapped_column(Integer, default=0)
+    usage_window_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    created_by: Mapped[User | None] = relationship()
 
 
 class Country(TimestampMixin, Base):

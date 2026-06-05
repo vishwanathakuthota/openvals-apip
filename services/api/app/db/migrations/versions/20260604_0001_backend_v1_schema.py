@@ -31,6 +31,28 @@ def upgrade() -> None:
     op.create_index("ix_users_status", "users", ["status"])
 
     op.create_table(
+        "api_keys",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("key_prefix", sa.String(length=32), nullable=False),
+        sa.Column("key_hash", sa.String(length=128), nullable=False),
+        sa.Column("plan", sa.String(length=40), nullable=False),
+        sa.Column("daily_limit", sa.Integer(), nullable=True),
+        sa.Column("status", sa.String(length=40), nullable=False),
+        sa.Column("created_by_user_id", sa.String(length=36), nullable=True),
+        sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("usage_count_today", sa.Integer(), nullable=False),
+        sa.Column("usage_window_start", sa.Date(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"]),
+    )
+    op.create_index("ix_api_keys_key_prefix", "api_keys", ["key_prefix"])
+    op.create_index("ix_api_keys_key_hash", "api_keys", ["key_hash"], unique=True)
+    op.create_index("ix_api_keys_plan", "api_keys", ["plan"])
+    op.create_index("ix_api_keys_status", "api_keys", ["status"])
+
+    op.create_table(
         "countries",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("name", sa.String(length=255), nullable=False),
@@ -273,4 +295,5 @@ def downgrade() -> None:
     op.drop_table("companies")
     op.drop_table("industries")
     op.drop_table("countries")
+    op.drop_table("api_keys")
     op.drop_table("users")
