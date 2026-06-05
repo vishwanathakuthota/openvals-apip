@@ -27,7 +27,7 @@ services:
     ports:
       - "6379:6379"
 
-  api:
+  migrate:
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -36,6 +36,28 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env.example
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "app.db.seed"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env.example
+    depends_on:
+      seed:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     ports:
@@ -48,6 +70,8 @@ services:
     env_file:
       - .env.example
     depends_on:
+      seed:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
@@ -58,10 +82,12 @@ services:
     environment:
       WEB_PUBLIC_API_BASE_URL: http://api:8000
       APIP_API_BASE_URL: http://api:8000
+      APIP_PUBLIC_API_KEY: apip_live_local_dev_key
       APIP_DEMO_EMAIL: admin@openvalidations.com
       APIP_DEMO_PASSWORD: apip-admin-change-me
     depends_on:
-      - api
+      api:
+        condition: service_started
     ports:
       - "3000:3000"
 

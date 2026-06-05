@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.passwords import hash_password
 from app.db.models import (
     AIModel,
+    ApiKey,
     Company,
     ConfidenceScore,
     Country,
@@ -18,6 +19,9 @@ from app.db.models import (
 )
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
+from app.domains.identity.api_keys import hash_api_key
+
+LOCAL_DEV_API_KEY = "apip_live_local_dev_key"
 
 
 def seed_database(db: Session) -> None:
@@ -30,6 +34,18 @@ def seed_database(db: Session) -> None:
         role="admin",
         status="active",
         password_hash=hash_password("apip-admin-change-me"),
+    )
+    get_or_create(
+        db,
+        ApiKey,
+        "key_hash",
+        hash_api_key(LOCAL_DEV_API_KEY),
+        name="Local Development API Key",
+        key_prefix=LOCAL_DEV_API_KEY[:16],
+        plan="enterprise",
+        daily_limit=None,
+        status="active",
+        created_by_user_id=admin.id,
     )
 
     countries = {

@@ -239,6 +239,18 @@ def test_public_api_requires_api_key():
     assert response.status_code == 401
 
 
+def test_seeded_local_development_api_key_can_access_public_api():
+    client = build_client()
+
+    response = client.get(
+        "/api/v1/companies",
+        headers={"X-API-Key": "apip_live_local_dev_key"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"]
+
+
 def test_free_api_key_daily_rate_limit_is_enforced():
     client = build_client()
     headers = api_key_headers(client, plan="free")
