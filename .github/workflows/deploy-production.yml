@@ -1,0 +1,56 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Immutable image tag to deploy, usually a commit SHA"
+        required: true
+        type: string
+      git_ref:
+        description: "Repository ref to deploy from"
+        required: true
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.PRODUCTION_SSH_KEY }}" > ~/.ssh/apip_production
+          chmod 600 ~/.ssh/apip_production
+          ssh-keyscan -H "${{ secrets.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          GIT_REF: ${{ inputs.git_ref }}
+        run: |
+          ssh -i ~/.ssh/apip_production "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && \
+             git fetch origin '$GIT_REF' && \
+             git checkout '$GIT_REF' && \
+             git pull --ff-only origin '$GIT_REF' && \
+             if docker compose -f docker-compose.prod.yml ps --services --filter status=running | grep -q '^postgres$'; then \
+               IMAGE_TAG='$IMAGE_TAG' ./infra/scripts/backup_postgres.sh; \
+             else \
+               echo 'Skipping pre-deploy backup because postgres is not running yet.'; \
+             fi && \
+             IMAGE_TAG='$IMAGE_TAG' docker compose -f docker-compose.prod.yml pull && \
+             IMAGE_TAG='$IMAGE_TAG' docker compose -f docker-compose.prod.yml up -d --remove-orphans && \
+             docker compose -f docker-compose.prod.yml ps && \
+             curl --fail --silent --show-error https://apip.openvalidations.com/api/v1/health"

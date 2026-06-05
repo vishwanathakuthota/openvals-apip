@@ -78,6 +78,23 @@ Returns process liveness.
 
 Returns database, Redis, and worker-readiness status.
 
+### GET /api/v1/health
+
+Returns deployment health for production reverse proxies and smoke tests.
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "api": "ok",
+    "postgres": "ok",
+    "redis": "ok"
+  }
+}
+```
+
 ## Public Dashboard APIs
 
 ### GET /api/v1/scoreboard

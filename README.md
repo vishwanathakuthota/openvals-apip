@@ -79,3 +79,4 @@ npm run dev
 - Admin UI: `http://localhost:3000/admin`
 - Admin API: `/api/v1/admin/*`
 - Deployment strategy: [docs/deployment-strategy.md](docs/deployment-strategy.md)
+- Production deployment guide: [docs/deployment.md](docs/deployment.md)
