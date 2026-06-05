@@ -37,6 +37,18 @@ type LineageRecord = {
   imported_at?: string | null;
   action: string;
 };
+type CompanyValidation = {
+  id: string;
+  company: string;
+  status: string;
+  openvals_validation_score: number;
+  openvals_validation_label: string;
+  evidence_coverage_score: number;
+  confidence_score: number;
+  evidence_count: number;
+  reviewer_notes?: string | null;
+  approved_at?: string | null;
+};
 type DashboardCounts = Record<string, number>;
 
 const resources = [
@@ -57,6 +69,7 @@ export function AdminPortal() {
   const [counts, setCounts] = useState<DashboardCounts>({});
   const [sourceMetrics, setSourceMetrics] = useState<SourceMetric[]>([]);
   const [lineage, setLineage] = useState<LineageRecord[]>([]);
+  const [companyValidations, setCompanyValidations] = useState<CompanyValidation[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
@@ -124,10 +137,11 @@ export function AdminPortal() {
       return;
     }
     const authHeader = { Authorization: `Bearer ${currentToken}` };
-    const [dashboard, metrics, lineageResponse, audits, ...resourceResponses] = await Promise.all([
+    const [dashboard, metrics, lineageResponse, validationsResponse, audits, ...resourceResponses] = await Promise.all([
       fetch("/api/admin/dashboard", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/source-metrics", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/lineage", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/company-validations", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/audit-logs", { headers: authHeader }).then((response) => response.json()),
       ...resources.map((resource) =>
         fetch(`/api/admin/${resource.key}`, { headers: authHeader }).then((response) => response.json())
@@ -136,6 +150,7 @@ export function AdminPortal() {
     setCounts(dashboard.counts ?? {});
     setSourceMetrics(metrics.items ?? []);
     setLineage(lineageResponse.items ?? []);
+    setCompanyValidations(validationsResponse.items ?? []);
     setAuditLogs(audits.items ?? []);
     setItems(Object.fromEntries(resources.map((resource, index) => [resource.key, resourceResponses[index].items ?? []])));
   }, [token]);
@@ -417,6 +432,19 @@ export function AdminPortal() {
       </section>
 
       <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
+        <div>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">OpenVals Validation</p>
+          <h2 className="text-xl font-semibold">Company Validation Dashboard</h2>
+        </div>
+        <CompanyValidationTable
+          busy={busy}
+          items={companyValidations}
+          onApprove={(id) => action(`company-validations/${id}/approve`, "Company validation approved")}
+          onReject={(id) => action(`company-validations/${id}/reject`, "Company validation rejected")}
+        />
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
         <h2 className="text-xl font-semibold">Audit Logs</h2>
         <div className="grid gap-2">
           {auditLogs.map((log) => (
@@ -581,6 +609,62 @@ function DataLineageTable({ items }: { items: LineageRecord[] }) {
         </tbody>
       </table>
       {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No catalog lineage records yet.</p> : null}
+    </div>
+  );
+}
+
+function CompanyValidationTable({
+  busy,
+  items,
+  onApprove,
+  onReject
+}: {
+  busy: boolean;
+  items: CompanyValidation[];
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] text-left text-sm">
+        <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="py-3 pr-3">Company</th>
+            <th className="py-3 pr-3">Validation</th>
+            <th className="py-3 pr-3">Coverage</th>
+            <th className="py-3 pr-3">Confidence</th>
+            <th className="py-3 pr-3">Evidence</th>
+            <th className="py-3 pr-3">Status</th>
+            <th className="py-3 pr-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr className="border-b border-border/70" key={item.id}>
+              <td className="py-3 pr-3">{item.company}</td>
+              <td className="py-3 pr-3">
+                <strong className="tabular-nums">{item.openvals_validation_score.toFixed(1)}</strong>
+                <span className="ml-2 text-xs text-muted-foreground">{item.openvals_validation_label}</span>
+              </td>
+              <td className="py-3 pr-3 tabular-nums">{item.evidence_coverage_score.toFixed(1)}</td>
+              <td className="py-3 pr-3 tabular-nums">{item.confidence_score.toFixed(1)}</td>
+              <td className="py-3 pr-3">{item.evidence_count}</td>
+              <td className="py-3 pr-3">
+                <Badge className={statusClass(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
+              </td>
+              <td className="flex gap-2 py-3 pr-3">
+                <Button disabled={busy || item.status === "approved"} onClick={() => onApprove(item.id)} size="sm">
+                  Approve
+                </Button>
+                <Button disabled={busy || item.status === "rejected"} onClick={() => onReject(item.id)} size="sm" variant="outline">
+                  Reject
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No company validations yet.</p> : null}
     </div>
   );
 }

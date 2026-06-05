@@ -14,6 +14,7 @@ from app.api.routes import (
     roi_calculator,
     scoreboard,
     sources,
+    validations,
 )
 from app.core.config import settings
 
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(confidence.router, prefix="/api/v1", tags=["confidence"])
     app.include_router(roi_calculator.router, prefix="/api/v1", tags=["roi-calculator"])
     app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
+    app.include_router(validations.router, prefix="/api/v1", tags=["company-validations"])
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
     return app
 

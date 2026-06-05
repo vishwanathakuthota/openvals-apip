@@ -150,6 +150,77 @@ class DataLineage(Base):
     imported_by: Mapped[User] = relationship()
 
 
+class CompanyValidation(TimestampMixin, Base):
+    __tablename__ = "company_validations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    openvals_validation_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    evidence_coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    approved_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    company: Mapped[Company] = relationship()
+    reviewed_by: Mapped[User | None] = relationship(foreign_keys=[reviewed_by_user_id])
+    approved_by: Mapped[User | None] = relationship(foreign_keys=[approved_by_user_id])
+    evidence_items: Mapped[list["CompanyValidationEvidence"]] = relationship(
+        back_populates="validation"
+    )
+    source_reviews: Mapped[list["CompanyValidationSourceReview"]] = relationship(
+        back_populates="validation"
+    )
+
+
+class CompanyValidationEvidence(TimestampMixin, Base):
+    __tablename__ = "company_validation_evidence"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    validation_id: Mapped[str] = mapped_column(
+        ForeignKey("company_validations.id"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    evidence_type: Mapped[str] = mapped_column(String(120), index=True)
+    coverage_weight: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    review_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    validation: Mapped[CompanyValidation] = relationship(back_populates="evidence_items")
+    source: Mapped[Source] = relationship()
+    reviewed_by: Mapped[User | None] = relationship()
+
+
+class CompanyValidationSourceReview(TimestampMixin, Base):
+    __tablename__ = "company_validation_source_reviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    validation_id: Mapped[str] = mapped_column(
+        ForeignKey("company_validations.id"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    review_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    validation: Mapped[CompanyValidation] = relationship(back_populates="source_reviews")
+    source: Mapped[Source] = relationship()
+    reviewed_by: Mapped[User | None] = relationship()
+
+
 class SourceMetric(TimestampMixin, Base):
     __tablename__ = "source_metrics"
 

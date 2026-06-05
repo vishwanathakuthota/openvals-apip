@@ -8,6 +8,7 @@ from app.db.models import (
     AIModel,
     ApiKey,
     Company,
+    CompanyValidation,
     ConfidenceScore,
     Country,
     Industry,
@@ -21,6 +22,12 @@ from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
 from app.domains.sources.registry import BETA_COMPANIES, SOURCE_REGISTRY
+from app.domains.validation.service import (
+    attach_source_evidence,
+    ensure_company_validation,
+    ensure_source_review,
+    recalculate_company_validation,
+)
 
 LOCAL_DEV_API_KEY = "apip_live_local_dev_key"
 
@@ -340,6 +347,7 @@ def seed_database(db: Session) -> None:
                 beta_sources(company_slug),
                 beta_methodology(company_slug, metric_key),
             )
+        seed_company_validation(db, companies[company_slug], beta_sources(company_slug), admin.id)
 
     us_sources = [
         source_map["stanford-ai-index"],
@@ -483,6 +491,37 @@ def beta_methodology(company_slug: str, metric_key: str) -> str:
         "evidence. Direct AI economics disclosure varies by company, so APIP stores the source-backed "
         "proxy with confidence and evidence coverage rather than treating it as a final audited AI segment."
     )
+
+
+def seed_company_validation(
+    db: Session,
+    company: Company,
+    sources: list[Source],
+    reviewer_user_id: str,
+) -> CompanyValidation:
+    validation = ensure_company_validation(db, company)
+    validation.status = "in_review"
+    validation.reviewed_by_user_id = reviewer_user_id
+    validation.reviewer_notes = (
+        "Initial OpenVals beta validation created from approved source registry evidence."
+    )
+    for source in sources:
+        evidence = attach_source_evidence(
+            db,
+            validation,
+            source,
+            evidence_type=source.source_type,
+            review_status="approved",
+        )
+        evidence.reviewer_notes = "Seeded from beta source registry."
+        evidence.reviewed_by_user_id = reviewer_user_id
+        evidence.reviewed_at = datetime.now(UTC)
+        review = ensure_source_review(db, validation, source, review_status="approved")
+        review.reviewer_notes = "Source approved for beta company validation."
+        review.reviewed_by_user_id = reviewer_user_id
+        review.reviewed_at = datetime.now(UTC)
+    recalculate_company_validation(validation)
+    return validation
 
 
 def seed_metric(

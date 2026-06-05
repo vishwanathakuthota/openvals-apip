@@ -23,6 +23,7 @@ This repository includes the Version 1 APIP foundation:
 - CSV ETL and source management workflow with admin approval, metric versioning, and audit logs
 - Real catalog data import foundation with source attribution, confidence scoring, and lineage tracking
 - Real data beta source registry, credibility engine, evidence coverage scoring, and ingestion connectors
+- Company validation framework with evidence tracking, source review, reviewer notes, and OpenVals Validation Score
 - Login-protected admin portal for catalog management, source review, audit logs, and seed import
 - Public API key access with Free, Pro, and Enterprise daily limit tiers
 - OpenVals-branded public launch pages for methodology, about, disclaimer, and developer access
@@ -64,6 +65,7 @@ Recommended Mac local development flow:
 
 - Real data guide: [docs/REAL_DATA_GUIDE.md](docs/REAL_DATA_GUIDE.md)
 - Real data beta architecture: [docs/REAL_DATA_ARCHITECTURE.md](docs/REAL_DATA_ARCHITECTURE.md)
+- Company validation playbook: [docs/COMPANY_VALIDATION_PLAYBOOK.md](docs/COMPANY_VALIDATION_PLAYBOOK.md)
 - ETL workflow: [docs/etl-source-management.md](docs/etl-source-management.md)
 - AI Reality Index: [docs/ai-reality-index.md](docs/ai-reality-index.md)
 - CSV templates: [samples/companies-template.csv](samples/companies-template.csv), [samples/industries-template.csv](samples/industries-template.csv), [samples/countries-template.csv](samples/countries-template.csv), [samples/models-template.csv](samples/models-template.csv), [samples/financial-metrics-template.csv](samples/financial-metrics-template.csv)
