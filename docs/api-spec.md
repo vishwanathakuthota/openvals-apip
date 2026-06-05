@@ -78,6 +78,23 @@ Returns process liveness.
 
 Returns database, Redis, and worker-readiness status.
 
+### GET /api/v1/health
+
+Returns deployment health for production reverse proxies and smoke tests.
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "api": "ok",
+    "postgres": "ok",
+    "redis": "ok"
+  }
+}
+```
+
 ## Public Dashboard APIs
 
 ### GET /api/v1/scoreboard
@@ -107,12 +124,56 @@ Response:
 
 ### GET /api/v1/ai-reality-index
 
-Returns ranked AI Reality Index entities.
+Returns ranked AI Reality Index entities calculated from approved ROI, revenue growth, margin, and adoption metrics.
 
 Query parameters:
 
-- `entity_type`: `company`, `industry`, `country`, `model`, optional.
+- `entity_type`: `company`, `industry`, `country`, optional.
 - `limit`: default 25, maximum 100.
+
+Formula:
+
+```text
+AI Reality Index = (ROI * 0.4) + (Revenue Growth * 0.3) + (Margin * 0.2) + (Adoption * 0.1)
+```
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "entity_type": "company",
+      "entity_id": "company_nvidia",
+      "entity_name": "NVIDIA",
+      "score": 88.9,
+      "label": "Strong",
+      "classification": "Strong",
+      "components": {
+        "roi": 94,
+        "revenue_growth": 88,
+        "margin": 74,
+        "adoption": 91
+      },
+      "confidence": {
+        "score": 82.5,
+        "label": "High Confidence",
+        "source_count": 12,
+        "last_updated": "2026-06-04T09:00:00Z",
+        "methodology_note": "AI Reality Index is calculated from approved component metrics."
+      }
+    }
+  ]
+}
+```
+
+Classifications:
+
+- `90-100`: Elite
+- `70-89`: Strong
+- `50-69`: Emerging
+- `30-49`: Speculative
+- `0-29`: Cash Burn Zone
 
 ## Companies
 
@@ -286,9 +347,110 @@ Returns source metadata and linked metrics.
 
 Admin routes are under `/api/v1/admin`.
 
+All admin routes require an admin JWT:
+
+```http
+Authorization: Bearer <admin-token>
+```
+
+### GET /api/v1/admin/api-keys
+
+Lists API keys by prefix, plan, status, and usage. Plaintext keys are never returned after creation.
+
+### POST /api/v1/admin/api-keys
+
+Generates a new API key. The plaintext `api_key` is returned once.
+
+Request:
+
+```json
+{
+  "name": "Partner Integration",
+  "plan": "pro"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "key_123",
+  "name": "Partner Integration",
+  "key_prefix": "apip_live_abcd",
+  "api_key": "apip_live_abcd...",
+  "plan": "pro",
+  "daily_limit": 5000,
+  "status": "active"
+}
+```
+
+### PATCH /api/v1/admin/api-keys/{api_key_id}
+
+Updates API key name, plan, or status.
+
+### GET /api/v1/admin/dashboard
+
+Returns admin counts for catalog entities, sources, pending imported metrics, and audit logs.
+
+### GET /api/v1/admin/companies
+
+Lists companies for administration.
+
+### POST /api/v1/admin/companies
+
+Creates a company.
+
+### PATCH /api/v1/admin/companies/{company_id}
+
+Updates company metadata or status.
+
+### GET /api/v1/admin/industries
+
+Lists industries for administration.
+
+### POST /api/v1/admin/industries
+
+Creates an industry.
+
+### PATCH /api/v1/admin/industries/{industry_id}
+
+Updates industry metadata or status.
+
+### GET /api/v1/admin/countries
+
+Lists countries for administration.
+
+### POST /api/v1/admin/countries
+
+Creates a country.
+
+### PATCH /api/v1/admin/countries/{country_id}
+
+Updates country metadata.
+
+### GET /api/v1/admin/models
+
+Lists AI models for administration.
+
+### POST /api/v1/admin/models
+
+Creates an AI model.
+
+### PATCH /api/v1/admin/models/{model_id}
+
+Updates AI model metadata or status.
+
+### GET /api/v1/admin/sources
+
+Lists all sources, including pending and rejected sources.
+
 ### POST /api/v1/admin/sources
 
-Creates a source record or registers an uploaded source.
+Creates a source record.
+
+### PATCH /api/v1/admin/sources/{source_id}
+
+Updates source metadata or status.
 
 ### PATCH /api/v1/admin/sources/{source_id}/approve
 
@@ -312,30 +474,84 @@ Approves a metric and triggers confidence/derived metric recalculation.
 
 ### POST /api/v1/admin/imports/csv
 
-Uploads a CSV file and queues an import job.
+Uploads a financial metrics CSV file, validates each row, creates pending `source_metrics`, calculates preliminary confidence scores, and writes import audit logs.
 
-### POST /api/v1/admin/etl-jobs
+Multipart form field:
 
-Triggers an ETL job.
+- `file`: `.csv`
 
-Request:
+Required CSV columns:
+
+- `company`
+- `year`
+- `metric_type`
+- `value`
+- `source_url`
+- `source_type`
+
+Response:
 
 ```json
 {
-  "job_type": "recalculate_metrics",
-  "parameters": {
-    "period_end": "2026-12-31"
-  }
+  "imported_count": 1,
+  "items": [
+    {
+      "id": "srcmet_123",
+      "company": "OpenAI",
+      "year": 2026,
+      "metric_type": "ai_revenue",
+      "value": 12500000000,
+      "source_url": "https://example.com/openai-annual-report",
+      "source_type": "annual_report",
+      "confidence_score": 75.5,
+      "approved_status": "pending"
+    }
+  ]
 }
 ```
 
-### GET /api/v1/admin/etl-jobs/{job_id}
+### GET /api/v1/admin/source-metrics
 
-Returns ETL job status and events.
+Lists imported metrics for admin review. Optional query parameter:
+
+- `approved_status`: `pending`, `approved`, or `rejected`
+
+### PATCH /api/v1/admin/source-metrics/{source_metric_id}/approve
+
+Approves an imported metric, publishes it to canonical `metric_values`, links the approved source, recalculates confidence, creates a metric version, and writes audit logs.
+
+### PATCH /api/v1/admin/source-metrics/{source_metric_id}/reject
+
+Rejects an imported metric and source without publishing it to public metric responses.
 
 ### GET /api/v1/admin/audit-logs
 
-Lists audit logs.
+Lists source workflow and metric publication audit logs.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "audit_123",
+      "actor": "APIP Admin",
+      "action": "source_metric.approved",
+      "target_type": "source_metric",
+      "target_id": "srcmet_123",
+      "metadata": {
+        "source_id": "src_123"
+      },
+      "created_at": "2026-06-04T09:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+### POST /api/v1/admin/seed-import
+
+Runs the idempotent seed import and writes an audit event.
 
 ### GET /api/v1/admin/users
 
@@ -347,12 +563,13 @@ Updates role or status.
 
 ## Rate Limits
 
-Recommended defaults:
+Daily API key tiers:
 
-- Public API key: 600 requests per 5 minutes.
-- Anonymous calculator use: 60 requests per hour per IP.
-- Admin writes: 300 requests per 5 minutes per user.
-- ETL job creation: 20 requests per hour per admin.
+- Free: 100 requests per day.
+- Pro: 5,000 requests per day.
+- Enterprise: unlimited.
+
+The V1 foundation stores daily counters on `api_keys`. Redis-backed distributed limits can be layered on top of the same plan model for multi-instance deployments.
 
 ## OpenAPI Exposure
 

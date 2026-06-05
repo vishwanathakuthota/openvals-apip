@@ -31,10 +31,12 @@ countries 1---n metric_values
 ai_models 1---n metric_values
 
 metric_definitions 1---n metric_values
+sources 1---n source_metrics
+source_metrics 1---n metric_versions
 metric_values n---n sources through metric_sources
 metric_values 1---1 confidence_scores
 
-etl_jobs 1---n etl_job_events
+users 1---n source_metrics
 ```
 
 ## Identity and Access
@@ -64,21 +66,22 @@ Indexes:
 | --- | --- | --- |
 | id | uuid | Primary key |
 | name | text | Display name |
+| key_prefix | text | Non-secret visible prefix |
 | key_hash | text | Hashed API key |
-| prefix | text | Non-secret visible prefix |
-| owner_user_id | uuid | FK to `users.id`, nullable for system keys |
-| scopes | text[] | Example: `public:read`, `metrics:read` |
-| rate_limit_per_minute | integer | Required |
+| plan | text | `free`, `pro`, `enterprise` |
+| daily_limit | integer | `100`, `5000`, or null for enterprise |
 | status | text | `active`, `revoked` |
+| created_by_user_id | uuid | FK to `users.id`, nullable for system keys |
 | last_used_at | timestamptz | Nullable |
-| expires_at | timestamptz | Nullable |
+| usage_count_today | integer | Daily usage counter |
+| usage_window_start | date | Counter window date |
 | created_at | timestamptz | Required |
 | updated_at | timestamptz | Required |
 
 Indexes:
 
 - Unique index on `key_hash`.
-- Index on `(status, expires_at)`.
+- Indexes on `key_prefix`, `plan`, and `status`.
 
 ## Catalog Tables
 
@@ -271,32 +274,44 @@ Primary key:
 
 ## ETL and Admin
 
-### etl_jobs
+### source_metrics
+
+Stores imported CSV metrics before admin approval.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | id | uuid | Primary key |
-| job_type | text | `csv_import`, `source_refresh`, `recalculate_metrics`, `seed_data` |
-| status | text | `queued`, `running`, `succeeded`, `failed`, `cancelled` |
-| requested_by_user_id | uuid | FK to `users.id` |
-| input_uri | text | Optional object storage path |
-| parameters | jsonb | Job options |
-| error_message | text | Nullable |
-| started_at | timestamptz | Nullable |
-| completed_at | timestamptz | Nullable |
+| company_id | uuid | FK to `companies.id` |
+| year | integer | Reporting year |
+| metric_type | text | Normalized metric key, example `ai_revenue` |
+| value_numeric | numeric(20,6) | Imported value |
+| source_id | uuid | FK to `sources.id` |
+| source_url | text | Original evidence URL |
+| source_type | text | Confidence taxonomy source type |
+| confidence_score | numeric(5,2) | Preliminary confidence score |
+| methodology_note | text | Extraction or calculation note |
+| created_by_user_id | uuid | FK to `users.id` |
+| approved_status | text | `pending`, `approved`, `rejected` |
+| reviewed_by_user_id | uuid | FK to `users.id`, nullable |
+| reviewed_at | timestamptz | Nullable |
 | created_at | timestamptz | Required |
 | updated_at | timestamptz | Required |
 
-### etl_job_events
+### metric_versions
+
+Captures source metric review and publication history.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | id | uuid | Primary key |
-| etl_job_id | uuid | FK to `etl_jobs.id` |
-| level | text | `info`, `warning`, `error` |
-| message | text | Required |
-| metadata | jsonb | Optional |
+| source_metric_id | uuid | FK to `source_metrics.id` |
+| metric_value_id | uuid | FK to `metric_values.id`, nullable until approved |
+| version | integer | Version number for the imported source metric |
+| value_numeric | numeric(20,6) | Versioned value |
+| approved_status | text | Status captured by this version |
+| created_by_user_id | uuid | FK to `users.id` |
 | created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
 
 ### audit_logs
 

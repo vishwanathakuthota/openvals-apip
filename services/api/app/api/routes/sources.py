@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import Source
 
 router = APIRouter()
 
 
 @router.get("/sources")
-def list_sources(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)):
+def list_sources(_: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)):
     items = db.scalars(
         select(Source).where(Source.status == "approved").order_by(Source.title)
     ).all()
@@ -18,7 +18,7 @@ def list_sources(_: dict[str, str] = Depends(require_jwt), db: Session = Depends
 
 @router.get("/sources/{source_id}")
 def get_source(
-    source_id: str, _: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)
+    source_id: str, _: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)
 ):
     source = db.get(Source, source_id)
     if not source:

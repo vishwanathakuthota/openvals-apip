@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import Country
 from app.domains.metrics.repository import entity_metrics
 
@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/countries")
-def list_countries(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)):
+def list_countries(_: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)):
     items = db.scalars(select(Country).order_by(Country.name)).all()
     return {"items": [serialize_country(item) for item in items], "next_cursor": None}
 
@@ -18,7 +18,7 @@ def list_countries(_: dict[str, str] = Depends(require_jwt), db: Session = Depen
 @router.get("/countries/{country_id}")
 def get_country(
     country_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     country = db.get(Country, country_id)
@@ -30,7 +30,7 @@ def get_country(
 @router.get("/countries/{country_id}/metrics")
 def get_country_metrics(
     country_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     return {"items": entity_metrics(db, "country", country_id)}

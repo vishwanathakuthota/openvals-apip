@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,17 +6,22 @@ from sqlalchemy.orm import Session
 from app.core.passwords import hash_password
 from app.db.models import (
     AIModel,
+    ApiKey,
     Company,
     ConfidenceScore,
     Country,
     Industry,
     MetricDefinition,
+    MetricSource,
     MetricValue,
     Source,
     User,
 )
 from app.db.session import SessionLocal
-from app.domains.confidence.service import calculate_confidence
+from app.domains.confidence.service import score_metric_confidence, source_reliability_score
+from app.domains.identity.api_keys import hash_api_key
+
+LOCAL_DEV_API_KEY = "apip_live_local_dev_key"
 
 
 def seed_database(db: Session) -> None:
@@ -29,6 +34,18 @@ def seed_database(db: Session) -> None:
         role="admin",
         status="active",
         password_hash=hash_password("apip-admin-change-me"),
+    )
+    get_or_create(
+        db,
+        ApiKey,
+        "key_hash",
+        hash_api_key(LOCAL_DEV_API_KEY),
+        name="Local Development API Key",
+        key_prefix=LOCAL_DEV_API_KEY[:16],
+        plan="enterprise",
+        daily_limit=None,
+        status="active",
+        created_by_user_id=admin.id,
     )
 
     countries = {
@@ -234,36 +251,227 @@ def seed_database(db: Session) -> None:
             higher_is_better=1,
             aggregation_method="latest",
         ),
+        "revenue_growth": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "revenue_growth",
+            name="Revenue Growth",
+            description="Year-over-year AI revenue growth score.",
+            unit="ratio",
+            higher_is_better=1,
+            aggregation_method="latest",
+        ),
+        "adoption": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "adoption",
+            name="Adoption",
+            description="AI adoption score across tracked customers, users, or deployments.",
+            unit="score",
+            higher_is_better=1,
+            aggregation_method="latest",
+        ),
+        "ai_reality_index": get_or_create(
+            db,
+            MetricDefinition,
+            "key",
+            "ai_reality_index",
+            name="AI Reality Index",
+            description="Composite score from ROI, revenue growth, margin, and adoption.",
+            unit="score",
+            higher_is_better=1,
+            aggregation_method="weighted_average",
+        ),
     }
 
-    get_or_create(
-        db,
-        Source,
-        "title",
-        "Synthetic APIP Phase 2 Baseline",
-        source_type="industry_report",
-        url="https://example.com/apip-synthetic-baseline",
-        publisher="OpenVals",
-        reliability_score=65,
-        status="approved",
-    )
+    sources = [
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Annual Report Baseline",
+            source_type="annual_report",
+            url="https://example.com/apip-annual-report",
+            publisher="OpenVals",
+            published_at=datetime(2026, 5, 20, tzinfo=UTC),
+            reliability_score=source_reliability_score("annual_report"),
+            status="approved",
+        ),
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Investor Presentation",
+            source_type="investor_presentation",
+            url="https://example.com/apip-investor-presentation",
+            publisher="OpenVals",
+            published_at=datetime(2026, 4, 15, tzinfo=UTC),
+            reliability_score=source_reliability_score("investor_presentation"),
+            status="approved",
+        ),
+        get_or_create(
+            db,
+            Source,
+            "title",
+            "Synthetic APIP Industry Report",
+            source_type="industry_report",
+            url="https://example.com/apip-industry-report",
+            publisher="OpenVals",
+            published_at=datetime(2026, 2, 15, tzinfo=UTC),
+            reliability_score=source_reliability_score("industry_report"),
+            status="approved",
+        ),
+    ]
 
     seed_metric(
-        db, definitions["ai_revenue"], "company", companies["openai"].id, 12_500_000_000, "usd"
+        db,
+        definitions["ai_revenue"],
+        "company",
+        companies["openai"].id,
+        12_500_000_000,
+        "usd",
+        sources,
+    )
+    seed_metric(db, definitions["roi"], "company", companies["openai"].id, 0.78, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "company",
+        companies["openai"].id,
+        0.82,
+        None,
+        sources,
     )
     seed_metric(
-        db, definitions["ai_spend"], "company", companies["openai"].id, 16_000_000_000, "usd"
+        db,
+        definitions["gross_margin"],
+        "company",
+        companies["openai"].id,
+        0.48,
+        None,
+        sources,
     )
     seed_metric(
-        db, definitions["ai_revenue"], "country", countries["US"].id, 165_000_000_000, "usd"
+        db,
+        definitions["adoption"],
+        "company",
+        companies["openai"].id,
+        76,
+        None,
+        sources,
     )
+    seed_metric(db, definitions["roi"], "company", companies["nvidia"].id, 0.94, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "company",
+        companies["nvidia"].id,
+        0.88,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "company",
+        companies["nvidia"].id,
+        0.74,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "company",
+        companies["nvidia"].id,
+        91,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["ai_spend"],
+        "company",
+        companies["openai"].id,
+        16_000_000_000,
+        "usd",
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["ai_revenue"],
+        "country",
+        countries["US"].id,
+        165_000_000_000,
+        "usd",
+        sources,
+    )
+    seed_metric(db, definitions["roi"], "country", countries["US"].id, 0.74, None, sources)
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "country",
+        countries["US"].id,
+        0.68,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "country",
+        countries["US"].id,
+        0.45,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "country",
+        countries["US"].id,
+        61,
+        None,
+        sources,
+    )
+    healthcare_id = db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai"))
     seed_metric(
         db,
         definitions["roi"],
         "industry",
-        db.scalar(select(Industry.id).where(Industry.slug == "healthcare-ai")),
+        healthcare_id,
         1.18,
         None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["revenue_growth"],
+        "industry",
+        healthcare_id,
+        0.59,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["gross_margin"],
+        "industry",
+        healthcare_id,
+        0.62,
+        None,
+        sources,
+    )
+    seed_metric(
+        db,
+        definitions["adoption"],
+        "industry",
+        healthcare_id,
+        67,
+        None,
+        sources,
     )
     seed_metric(
         db,
@@ -272,6 +480,7 @@ def seed_database(db: Session) -> None:
         db.scalar(select(AIModel.id).where(AIModel.slug == "gpt")),
         0.61,
         None,
+        sources,
     )
 
     db.add(admin)
@@ -295,6 +504,7 @@ def seed_metric(
     entity_id: str | None,
     value: float,
     currency: str | None,
+    sources: list[Source],
 ) -> None:
     metric = db.scalar(
         select(MetricValue).where(
@@ -314,23 +524,43 @@ def seed_metric(
             period_end=date(2026, 12, 31),
             value_numeric=value,
             currency=currency,
-            methodology="Synthetic Phase 2 seed baseline.",
+            methodology=(
+                "Synthetic APIP baseline calculated from approved source records, "
+                "normalized to 2026 reporting periods, and cross-checked across annual report, "
+                "investor presentation, and industry report evidence."
+            ),
             status="approved",
         )
         db.add(metric)
         db.flush()
+    for source in sources:
+        existing_link = db.scalar(
+            select(MetricSource).where(
+                MetricSource.metric_value_id == metric.id,
+                MetricSource.source_id == source.id,
+            )
+        )
+        if not existing_link:
+            db.add(
+                MetricSource(
+                    metric_value_id=metric.id,
+                    source_id=source.id,
+                    evidence_note="Linked during APIP seed confidence calculation.",
+                )
+            )
     if not metric.confidence_score:
-        confidence = calculate_confidence(65, 90, 70, 75)
+        confidence = score_metric_confidence(metric, sources)
         db.add(
             ConfidenceScore(
                 metric_value_id=metric.id,
-                source_reliability=65,
-                data_freshness=90,
-                cross_verification=70,
-                methodology_transparency=75,
-                confidence_score=confidence["score"],
-                confidence_label=confidence["label"],
-                source_count=1,
+                source_reliability=confidence.source_reliability,
+                data_freshness=confidence.data_freshness,
+                cross_verification=confidence.cross_verification,
+                methodology_transparency=confidence.methodology_transparency,
+                confidence_score=confidence.confidence_score,
+                confidence_label=confidence.confidence_label,
+                source_count=confidence.source_count,
+                methodology_note=confidence.methodology_note,
             )
         )
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_jwt
+from app.api.deps import get_db, require_api_key
 from app.db.models import AIModel
 from app.domains.metrics.repository import entity_metrics
 
@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/models")
-def list_models(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(get_db)):
+def list_models(_: dict[str, str] = Depends(require_api_key), db: Session = Depends(get_db)):
     items = db.scalars(
         select(AIModel).where(AIModel.status == "active").order_by(AIModel.name)
     ).all()
@@ -20,7 +20,7 @@ def list_models(_: dict[str, str] = Depends(require_jwt), db: Session = Depends(
 @router.get("/models/{model_id}")
 def get_model(
     model_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     model = db.get(AIModel, model_id)
@@ -32,7 +32,7 @@ def get_model(
 @router.get("/models/{model_id}/metrics")
 def get_model_metrics(
     model_id: str,
-    _: dict[str, str] = Depends(require_jwt),
+    _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
     return {"items": entity_metrics(db, "model", model_id)}

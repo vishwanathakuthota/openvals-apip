@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="APIP by OpenVals Open Graph placeholder">
+  <rect width="1200" height="630" fill="#03130f"/>
+  <rect x="70" y="70" width="1060" height="490" rx="26" fill="#06221b" stroke="#18463a" stroke-width="2"/>
+  <text x="110" y="175" fill="#8ff0bd" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">OpenVals APIP</text>
+  <text x="110" y="285" fill="#f2fff9" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">Is AI profitable yet?</text>
+  <text x="110" y="355" fill="#93afa4" font-family="Arial, Helvetica, sans-serif" font-size="34">AI profitability intelligence with source transparency.</text>
+  <g transform="translate(110 430)">
+    <rect width="250" height="72" rx="14" fill="#0b3329" stroke="#246a56"/>
+    <text x="28" y="45" fill="#8ff0bd" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Confidence Scores</text>
+    <rect x="285" width="230" height="72" rx="14" fill="#0b3329" stroke="#246a56"/>
+    <text x="313" y="45" fill="#8ff0bd" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Reality Index</text>
+    <rect x="550" width="260" height="72" rx="14" fill="#0b3329" stroke="#246a56"/>
+    <text x="578" y="45" fill="#8ff0bd" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Evidence First</text>
+  </g>
+</svg>

@@ -14,6 +14,15 @@ def live() -> dict[str, str]:
 
 @router.get("/health/ready")
 def ready() -> dict[str, object]:
+    return readiness_payload()
+
+
+@router.get("/api/v1/health")
+def api_v1_health() -> dict[str, object]:
+    return readiness_payload()
+
+
+def readiness_payload() -> dict[str, object]:
     checks = {"api": "ok", "postgres": "ok", "redis": "ok"}
     try:
         with SessionLocal() as db:

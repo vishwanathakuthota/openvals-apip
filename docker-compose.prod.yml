@@ -1,14 +1,132 @@
 services:
-  api:
-    image: ghcr.io/openvals/apip-api:${IMAGE_TAG:?set IMAGE_TAG}
-    env_file:
-      - .env
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    volumes:
+      - apip_postgres_data:/var/lib/postgresql/data
+    networks:
+      - apip_private
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - apip_redis_data:/data
+    networks:
+      - apip_private
+
+  api:
+    image: ${APIP_IMAGE_REGISTRY:-ghcr.io/openvals}/apip-api:${IMAGE_TAG:?set IMAGE_TAG}
+    env_file:
+      - ${APIP_ENV_FILE:-.env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=5)"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - apip_private
 
   worker:
-    image: ghcr.io/openvals/apip-worker:${IMAGE_TAG:?set IMAGE_TAG}
+    image: ${APIP_IMAGE_REGISTRY:-ghcr.io/openvals}/apip-worker:${IMAGE_TAG:?set IMAGE_TAG}
     env_file:
-      - .env
+      - ${APIP_ENV_FILE:-.env}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - apip_private
+
+  web:
+    image: ${APIP_IMAGE_REGISTRY:-ghcr.io/openvals}/apip-web:${IMAGE_TAG:?set IMAGE_TAG}
+    environment:
+      WEB_PUBLIC_API_BASE_URL: ${WEB_PUBLIC_API_BASE_URL:?set WEB_PUBLIC_API_BASE_URL}
+      APIP_API_BASE_URL: ${APIP_API_BASE_URL:?set APIP_API_BASE_URL}
+      APIP_PUBLIC_API_KEY: ${APIP_PUBLIC_API_KEY:?set APIP_PUBLIC_API_KEY}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - apip_private
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APIP_DOMAIN: ${APIP_DOMAIN:-apip.openvalidations.com}
+      APIP_DOMAIN_ALIASES: ${APIP_DOMAIN_ALIASES:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - ./infra/nginx/templates:/etc/nginx/templates:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+      - ./infra/nginx/acme:/var/www/certbot:ro
+      - apip_nginx_logs:/var/log/nginx
+    networks:
+      - apip_private
+      - apip_public
+
+networks:
+  apip_private:
+    internal: true
+  apip_public:
+
+volumes:
+  apip_postgres_data:
+  apip_redis_data:
+  apip_nginx_logs:
