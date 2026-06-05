@@ -8,8 +8,10 @@ SOURCE_RELIABILITY_SCORES = {
     "annual_report": 95,
     "earnings_call": 90,
     "investor_presentation": 80,
+    "public_company_statement": 75,
     "analyst_estimate": 70,
     "industry_report": 65,
+    "institutional_dataset": 65,
     "news_article": 50,
     "community_estimate": 30,
 }

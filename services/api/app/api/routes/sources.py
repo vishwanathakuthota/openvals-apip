@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_api_key
 from app.db.models import Source
+from app.domains.sources.credibility import source_credibility_score, source_tier
 
 router = APIRouter()
 
@@ -31,8 +32,10 @@ def serialize_source(source: Source) -> dict[str, object]:
         "id": source.id,
         "title": source.title,
         "source_type": source.source_type,
+        "source_tier": source_tier(source.source_type),
         "url": source.url,
         "publisher": source.publisher,
         "reliability_score": source.reliability_score,
+        "credibility_score": source_credibility_score(source.source_type, source.published_at),
         "status": source.status,
     }

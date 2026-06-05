@@ -18,16 +18,17 @@ export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
       <div className="overflow-x-auto rounded-lg border border-border">
-        <div className="grid min-w-[760px] grid-cols-[1fr_120px_130px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <div className="grid min-w-[860px] grid-cols-[1fr_120px_130px_120px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           <span>Metric</span>
           <span>Value</span>
           <span>Confidence</span>
+          <span>Coverage</span>
           <span>Sources</span>
           <span>Updated</span>
         </div>
         {metrics.map((metric) => (
           <div
-            className="grid min-w-[760px] grid-cols-[1fr_120px_130px_110px_140px] border-b border-border px-4 py-3 text-sm"
+            className="grid min-w-[860px] grid-cols-[1fr_120px_130px_120px_110px_140px] border-b border-border px-4 py-3 text-sm"
             key={metric.id}
           >
             <span className="group relative">
@@ -40,12 +41,16 @@ export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
                 <span className="text-muted-foreground">
                   Confidence: {metric.confidence_score?.toFixed(1) ?? "n/a"} ({metric.confidence_label ?? "n/a"})
                 </span>
+                <span className="text-muted-foreground">
+                  Coverage: {metric.coverage_score?.toFixed(0) ?? "n/a"} ({metric.coverage_label ?? "n/a"})
+                </span>
                 <span className="text-muted-foreground">Sources: {metric.source_count ?? 0}</span>
                 <span className="text-muted-foreground">Last updated: {formatDate(metric.last_updated)}</span>
               </span>
             </span>
             <strong>{formatMetric(metric.value, metric.unit)}</strong>
             <Badge>{metric.confidence_label ?? metric.confidence?.label ?? "n/a"}</Badge>
+            <Badge>{metric.coverage_label ?? "n/a"}</Badge>
             <span>{metric.source_count ?? metric.confidence?.source_count ?? 0}</span>
             <span>{formatDate(metric.last_updated ?? metric.confidence?.last_updated)}</span>
           </div>
@@ -74,9 +79,11 @@ function SourceTransparencyPanel({ metric }: { metric?: MetricValue }) {
           <div className="grid gap-1 rounded-md border border-border p-3" key={source.id}>
             <div className="flex items-start justify-between gap-3">
               <strong className="text-sm">{source.title}</strong>
-              <Badge>{source.reliability_score}</Badge>
+              <Badge>{source.credibility_score ?? source.reliability_score}</Badge>
             </div>
-            <span className="text-xs text-muted-foreground">{source.source_type.replaceAll("_", " ")}</span>
+            <span className="text-xs text-muted-foreground">
+              Tier {source.source_tier ?? "n/a"} · {source.source_type.replaceAll("_", " ")}
+            </span>
             <span className="text-xs text-muted-foreground">{source.publisher}</span>
             <span className="text-xs text-muted-foreground">{formatDate(source.published_at)}</span>
           </div>

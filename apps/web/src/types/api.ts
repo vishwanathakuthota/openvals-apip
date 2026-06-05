@@ -19,6 +19,15 @@ export type MetricValue = {
   confidence_score?: number | null;
   confidence_label?: string | null;
   source_count?: number;
+  coverage_score?: number;
+  coverage_label?: string;
+  coverage?: {
+    score: number;
+    label: string;
+    source_count: number;
+    tier_counts: Record<string, number>;
+    methodology_note: string;
+  };
   last_updated?: string | null;
   methodology_note?: string;
   unit: string;
@@ -34,6 +43,8 @@ export type SourceTransparency = {
   id: string;
   title: string;
   source_type: string;
+  source_tier?: number;
+  credibility_score?: number;
   publisher?: string | null;
   url?: string | null;
   published_at?: string | null;

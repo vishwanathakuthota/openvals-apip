@@ -27,6 +27,7 @@ from app.domains.confidence.service import score_metric_confidence, source_relia
 from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
+from app.domains.ingestion.connectors import ManualResearchConnector
 
 router = APIRouter()
 
@@ -515,6 +516,55 @@ async def upload_catalog_csv(
         "imported_count": len(imported),
         "items": [item.__dict__ for item in imported],
     }
+
+
+@router.post("/research-entries", status_code=status.HTTP_201_CREATED)
+def create_manual_research_entry(
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    company = db.scalar(
+        select(Company).where(Company.slug == slugify(required_text(payload, "company")))
+    )
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "company_not_found",
+                "message": "Company must exist before research entry import.",
+            },
+        )
+    source_metric = ManualResearchConnector().create_source_metric(
+        db,
+        company=company,
+        payload=payload,
+        created_by_user_id=claims["sub"],
+    )
+    db.add(
+        MetricVersion(
+            source_metric_id=source_metric.id,
+            metric_value_id=None,
+            version=1,
+            value_numeric=source_metric.value_numeric,
+            approved_status="pending",
+            created_by_user_id=claims["sub"],
+        )
+    )
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="manual_research.imported",
+        target_type="source_metric",
+        target_id=source_metric.id,
+        metadata={
+            "company": company.name,
+            "metric_type": source_metric.metric_type,
+            "source_id": source_metric.source_id,
+        },
+    )
+    db.commit()
+    return source_metric_payload(source_metric)
 
 
 @router.get("/lineage")
