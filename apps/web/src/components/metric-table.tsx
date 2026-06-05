@@ -1,14 +1,24 @@
 import { ConfidenceScore } from "@/components/confidence-score";
+import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMetric } from "@/lib/format";
 import type { MetricValue } from "@/types/api";
 
 export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
+  if (!metrics.length) {
+    return (
+      <EmptyState
+        title="No approved metrics yet"
+        message="Metrics appear after source evidence is imported, scored, and approved by an APIP administrator."
+      />
+    );
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-[1fr_120px_130px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="grid min-w-[760px] grid-cols-[1fr_120px_130px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           <span>Metric</span>
           <span>Value</span>
           <span>Confidence</span>
@@ -17,7 +27,7 @@ export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
         </div>
         {metrics.map((metric) => (
           <div
-            className="grid grid-cols-[1fr_120px_130px_110px_140px] border-b border-border px-4 py-3 text-sm"
+            className="grid min-w-[760px] grid-cols-[1fr_120px_130px_110px_140px] border-b border-border px-4 py-3 text-sm"
             key={metric.id}
           >
             <span className="group relative">

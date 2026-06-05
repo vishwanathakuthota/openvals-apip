@@ -1,6 +1,6 @@
 # APIP Deployment Strategy
 
-Status: Phase 1 documentation-only strategy
+Status: Version 1 launch strategy for `apip.openvalidations.com`
 
 ## Deployment Target
 
@@ -16,6 +16,8 @@ Recommended subdomains:
 apip.openvalidations.com       Next.js web app
 api.apip.openvalidations.com   FastAPI API
 ```
+
+The web app includes branded launch routes for `/`, `/methodology`, `/about`, `/disclaimer`, and `/developers`.
 
 ## Environments
 
@@ -169,6 +171,8 @@ Required production secrets:
 - `REDIS_URL`
 - `SECRET_KEY`
 - `API_KEY_PEPPER`
+- `APIP_PUBLIC_API_KEY`
+- `APIP_API_BASE_URL`
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
 - Object storage credentials.
@@ -212,11 +216,23 @@ Production:
 Minimum smoke checks:
 
 - `GET https://apip.openvalidations.com/` returns 200.
+- `GET https://apip.openvalidations.com/methodology` returns 200.
+- `GET https://apip.openvalidations.com/about` returns 200.
+- `GET https://apip.openvalidations.com/disclaimer` returns 200.
+- `GET https://apip.openvalidations.com/developers` returns 200.
+- `GET https://apip.openvalidations.com/favicon.svg` returns 200.
+- `GET https://apip.openvalidations.com/og-image.svg` returns 200.
 - `GET https://api.apip.openvalidations.com/health/ready` returns `ok`.
 - `GET /api/v1/scoreboard` returns public metrics.
 - `POST /api/v1/roi-calculator` returns valid calculator output.
 - Admin login works in staging.
 - Worker can process a lightweight staging ETL job.
+
+Frontend build checks before deployment:
+
+- `cd apps/web && npm run lint`
+- `cd apps/web && npm run typecheck`
+- `cd apps/web && npm run build`
 
 ## Rollback Strategy
 
