@@ -2,6 +2,8 @@
 
 Status: Version 1 launch strategy for `apip.openvalidations.com`
 
+Operational deployment runbook: [deployment.md](deployment.md)
+
 ## Deployment Target
 
 Primary public domain from the PRD:

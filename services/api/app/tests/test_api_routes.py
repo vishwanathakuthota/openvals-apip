@@ -73,6 +73,18 @@ def test_backend_v1_rest_endpoints_return_seeded_data():
             assert response.json()["items"]
 
 
+def test_api_v1_health_endpoint_reports_service_status():
+    client = build_client()
+
+    response = client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] in {"ok", "degraded"}
+    assert payload["checks"]["api"] == "ok"
+    assert set(payload["checks"]) == {"api", "postgres", "redis"}
+
+
 def test_confidence_endpoint_returns_metric_confidence():
     client = build_client()
     headers = api_key_headers(client)
