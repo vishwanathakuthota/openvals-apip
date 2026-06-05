@@ -47,6 +47,7 @@ Create a production `.env` on the server. Do not commit it.
 | --- | --- | --- |
 | `APP_ENV` | Yes | Set to `production` to disable interactive API docs |
 | `APIP_DOMAIN` | Yes | Public web domain, `apip.openvalidations.com` |
+| `APIP_DOMAIN_ALIASES` | No | Optional extra NGINX server names, space separated |
 | `APIP_IMAGE_REGISTRY` | Yes | Image registry prefix, for example `ghcr.io/openvals` |
 | `APIP_ENV_FILE` | No | Compose env file path, defaults to `.env` |
 | `IMAGE_TAG` | Yes | Immutable image tag to run |
@@ -69,6 +70,7 @@ Recommended production values:
 ```env
 APP_ENV=production
 APIP_DOMAIN=apip.openvalidations.com
+APIP_DOMAIN_ALIASES=
 APIP_IMAGE_REGISTRY=ghcr.io/openvals
 IMAGE_TAG=<immutable-sha>
 POSTGRES_USER=apip
@@ -103,22 +105,50 @@ CORS_ORIGINS=https://apip.openvalidations.com
 - Confirm production images exist for API, worker, and web with the same immutable `IMAGE_TAG`.
 - Run `docker compose -f docker-compose.prod.yml config` before the first launch.
 - Start with `IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d`.
+- Confirm only NGINX publishes ports `80` and `443` to the host.
+- Confirm `api`, `web`, `postgres`, `redis`, and `worker` stay on Docker private networking.
 
 ## Cloudflare Checklist
 
-- Add `apip.openvalidations.com` as a proxied DNS record.
-- Set SSL/TLS mode to Full (Strict) after origin certificates are installed.
-- Enable WAF managed rules.
-- Enable bot protection appropriate for public API access.
-- Do not cache `/api/*`, `/admin/*`, or health routes.
-- Cache Next.js static assets under `/_next/static/*`.
+1. Add `apip.openvalidations.com` as a DNS record pointing to the VPS public IP.
+2. Set the DNS record to proxied after origin TLS works.
+3. Choose one SSL/TLS mode:
+   - Full: acceptable for first launch with a self-signed origin certificate or Cloudflare Origin Certificate.
+   - Full (Strict): recommended final mode; requires a trusted origin certificate or Cloudflare Origin Certificate whose hostnames include `apip.openvalidations.com`.
+   - Let's Encrypt Certbot: use Full (Strict) after the issued certificate is installed.
+4. Enable Always Use HTTPS.
+5. Enable WAF managed rules.
+6. Enable bot protection appropriate for public API access.
+7. Add cache bypass rules for `/api/*`, `/admin/*`, `/health/*`, and `/healthz`.
+8. Cache Next.js static assets under `/_next/static/*`.
+
+Cloudflare-compatible NGINX forwarding is enabled through:
+
+- `X-Forwarded-For`
+- `X-Forwarded-Proto`
+- `X-Forwarded-Host`
+- `CF-Connecting-IP`
+- `CF-IPCountry`
+- `CF-Ray`
 
 ## DNS Checklist
 
-- Point `apip.openvalidations.com` to the VPS public IP.
-- Keep TTL low during first launch.
-- Verify `dig apip.openvalidations.com` returns the expected record.
-- Confirm Cloudflare proxy status matches the launch plan.
+1. Create an `A` record:
+
+   ```text
+   apip.openvalidations.com -> <vps-public-ip>
+   ```
+
+2. Keep TTL low during first launch.
+3. Verify DNS:
+
+   ```bash
+   dig +short apip.openvalidations.com
+   ```
+
+4. Confirm the returned IP is the VPS public IP when DNS-only, or Cloudflare edge IPs when proxied.
+5. Confirm no stale `AAAA`, `CNAME`, or duplicate records point to a different host.
+6. Confirm the Cloudflare proxy status matches the SSL plan.
 
 ## SSL Checklist
 
@@ -135,12 +165,180 @@ Supported SSL paths:
 - Certbot certificate copied or symlinked into the same paths.
 - ACME HTTP challenge files served from `infra/nginx/acme/`.
 
+### Cloudflare Full Mode
+
+Use Full mode only when bootstrapping.
+
+1. Generate a Cloudflare Origin Certificate for `apip.openvalidations.com`, or use a self-signed certificate temporarily.
+2. Copy the certificate to `infra/nginx/certs/fullchain.pem`.
+3. Copy the private key to `infra/nginx/certs/privkey.pem`.
+4. Set Cloudflare SSL/TLS mode to Full.
+5. Start production Compose:
+
+   ```bash
+   IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d
+   ```
+
+6. Verify origin NGINX:
+
+   ```bash
+   curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/healthz
+   curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/api/v1/health
+   ```
+
+### Cloudflare Full Strict Mode
+
+Use Full (Strict) for production.
+
+1. In Cloudflare, create an Origin Server certificate.
+2. Include `apip.openvalidations.com` in the certificate hostnames.
+3. Copy the Origin Certificate PEM to `infra/nginx/certs/fullchain.pem`.
+4. Copy the private key PEM to `infra/nginx/certs/privkey.pem`.
+5. Confirm the certificate files are readable by the NGINX container:
+
+   ```bash
+   ls -l infra/nginx/certs/fullchain.pem infra/nginx/certs/privkey.pem
+   ```
+
+6. Validate NGINX configuration:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml run --rm nginx nginx -t
+   ```
+
+7. Start or reload production Compose:
+
+   ```bash
+   IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d nginx
+   ```
+
+8. Switch Cloudflare SSL/TLS mode to Full (Strict).
+9. Verify:
+
+   ```bash
+   curl --fail https://apip.openvalidations.com/healthz
+   curl --fail https://apip.openvalidations.com/api/v1/health
+   ```
+
+### Let's Encrypt Certbot
+
+Use Certbot when you want a publicly trusted origin certificate instead of Cloudflare Origin Certificate.
+
+1. Set the Cloudflare DNS record to DNS-only during initial HTTP challenge.
+2. Ensure ports `80` and `443` are open on the VPS firewall.
+3. Start NGINX with the ACME webroot mounted at `infra/nginx/acme/`.
+4. Issue the certificate with webroot challenge:
+
+   ```bash
+   certbot certonly \
+     --webroot \
+     --webroot-path /opt/apip/infra/nginx/acme \
+     --domain apip.openvalidations.com
+   ```
+
+5. Copy or symlink the issued files:
+
+   ```bash
+   ln -sf /etc/letsencrypt/live/apip.openvalidations.com/fullchain.pem infra/nginx/certs/fullchain.pem
+   ln -sf /etc/letsencrypt/live/apip.openvalidations.com/privkey.pem infra/nginx/certs/privkey.pem
+   ```
+
+6. Reload NGINX:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+   ```
+
+7. Switch Cloudflare to proxied and Full (Strict).
+
 Start NGINX only after certificate files exist. Then verify:
 
 ```bash
 curl --fail https://apip.openvalidations.com/healthz
 curl --fail https://apip.openvalidations.com/api/v1/health
 ```
+
+## Reverse Proxy Verification
+
+Production NGINX routes:
+
+| Public path | Upstream |
+| --- | --- |
+| `/` | `web:3000` |
+| `/_next/*` | `web:3000` |
+| `/api/*` | `api:8000` |
+| `/api/v1/health` | `api:8000` |
+| `/health/*` | `api:8000` |
+| `/healthz` | NGINX local health response |
+
+Verify on the VPS before enabling Cloudflare proxy:
+
+```bash
+curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/
+curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/api/v1/health
+```
+
+Verify after enabling Cloudflare proxy:
+
+```bash
+curl --fail https://apip.openvalidations.com/
+curl --fail https://apip.openvalidations.com/api/v1/health
+```
+
+If the health endpoint is correct, the expected response is:
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "api": "ok",
+    "postgres": "ok",
+    "redis": "ok"
+  }
+}
+```
+
+## Secure Connection Failed Troubleshooting
+
+Browsers show "Secure Connection Failed" when TLS fails before the request reaches the APIP application.
+
+Common causes:
+
+- DNS points `apip.openvalidations.com` to the wrong origin.
+- Cloudflare DNS record is proxied but SSL/TLS mode does not match the origin certificate.
+- Cloudflare Full (Strict) is enabled before installing a valid origin certificate.
+- The certificate in `infra/nginx/certs/fullchain.pem` does not include `apip.openvalidations.com`.
+- The NGINX container cannot read `fullchain.pem` or `privkey.pem`.
+- Another service is listening on host port `443` instead of APIP NGINX.
+- A stale IPv6 `AAAA` record points to a different server.
+
+Diagnosis commands:
+
+```bash
+dig +short apip.openvalidations.com
+curl -Iv https://apip.openvalidations.com/api/v1/health
+openssl s_client -connect apip.openvalidations.com:443 -servername apip.openvalidations.com -showcerts </dev/null
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs nginx
+docker compose -f docker-compose.prod.yml exec nginx nginx -t
+```
+
+If `curl` reports `tlsv1 unrecognized name`, the request is failing at SNI/certificate selection. Fix this by:
+
+1. Confirming DNS points to the APIP VPS or Cloudflare proxy.
+2. Installing a certificate whose hostname includes `apip.openvalidations.com`.
+3. Confirming `APIP_DOMAIN=apip.openvalidations.com`.
+4. Restarting NGINX:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml restart nginx
+   ```
+
+5. Retesting:
+
+   ```bash
+   curl -Iv https://apip.openvalidations.com/api/v1/health
+   ```
 
 ## PostgreSQL Volume Checklist
 
