@@ -32,11 +32,13 @@ ai_models 1---n metric_values
 
 metric_definitions 1---n metric_values
 sources 1---n source_metrics
+sources 1---n data_lineage
 source_metrics 1---n metric_versions
 metric_values n---n sources through metric_sources
 metric_values 1---1 confidence_scores
 
 users 1---n source_metrics
+users 1---n data_lineage
 ```
 
 ## Identity and Access
@@ -233,6 +235,29 @@ Join table linking metrics to sources.
 Primary key:
 
 - `(metric_value_id, source_id)`
+
+### data_lineage
+
+Tracks real catalog imports for companies, industries, countries, and models.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| entity_type | text | `companies`, `industries`, `countries`, `models` |
+| entity_id | uuid | Imported or updated catalog record ID |
+| source_id | uuid | FK to `sources.id` |
+| source_url | text | Required source URL from CSV |
+| source_type | text | Source type used by Confidence Score Engine |
+| confidence_score | numeric(5,2) | Calculated import confidence |
+| imported_by_user_id | uuid | FK to `users.id` |
+| imported_at | timestamptz | Import timestamp |
+| import_batch_id | uuid | Groups rows imported from the same CSV |
+| action | text | `imported` or `updated` |
+| metadata_json | text | Snapshot of imported CSV fields |
+
+Indexes:
+
+- Indexes on `entity_type`, `entity_id`, `source_id`, `source_type`, `imported_by_user_id`, `import_batch_id`, and `action`.
 
 ### confidence_scores
 

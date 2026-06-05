@@ -13,6 +13,7 @@ from app.db.models import (
     Company,
     ConfidenceScore,
     Country,
+    DataLineage,
     Industry,
     MetricDefinition,
     MetricSource,
@@ -23,6 +24,7 @@ from app.db.models import (
 )
 from app.db.seed import seed_database
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
+from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 
@@ -48,6 +50,7 @@ def admin_dashboard(
             ),
             "audit_logs": len(db.scalars(select(AuditLog)).all()),
             "api_keys": len(db.scalars(select(ApiKey)).all()),
+            "data_lineage": len(db.scalars(select(DataLineage)).all()),
         }
     }
 
@@ -487,6 +490,45 @@ async def upload_financial_metrics_csv(
     }
 
 
+@router.post("/imports/catalog/{entity_type}/csv", status_code=status.HTTP_201_CREATED)
+async def upload_catalog_csv(
+    entity_type: str,
+    file: UploadFile = File(...),
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_file_type", "message": "Upload a .csv file."},
+        )
+    csv_text = (await file.read()).decode("utf-8-sig")
+    imported = import_catalog_csv(
+        db,
+        entity_type=entity_type,
+        csv_text=csv_text,
+        imported_by_user_id=claims["sub"],
+    )
+    db.commit()
+    return {
+        "entity_type": normalize_entity_type(entity_type),
+        "imported_count": len(imported),
+        "items": [item.__dict__ for item in imported],
+    }
+
+
+@router.get("/lineage")
+def list_data_lineage(
+    entity_type: str | None = None,
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    stmt = select(DataLineage).order_by(DataLineage.imported_at.desc()).limit(100)
+    if entity_type:
+        stmt = stmt.where(DataLineage.entity_type == normalize_entity_type(entity_type))
+    return {"items": [data_lineage_payload(item) for item in db.scalars(stmt).all()]}
+
+
 @router.get("/source-metrics")
 def list_source_metrics(
     approved_status: str | None = None,
@@ -758,6 +800,24 @@ def source_metric_payload(source_metric: SourceMetric) -> dict[str, object]:
             if source_metric.source.published_at
             else None,
         },
+    }
+
+
+def data_lineage_payload(lineage: DataLineage) -> dict[str, object]:
+    return {
+        "id": lineage.id,
+        "entity_type": lineage.entity_type,
+        "entity_id": lineage.entity_id,
+        "source_url": lineage.source_url,
+        "source_type": lineage.source_type,
+        "confidence_score": float(lineage.confidence_score),
+        "imported_by": lineage.imported_by.full_name if lineage.imported_by else None,
+        "imported_by_user_id": lineage.imported_by_user_id,
+        "imported_at": lineage.imported_at.isoformat() if lineage.imported_at else None,
+        "import_batch_id": lineage.import_batch_id,
+        "action": lineage.action,
+        "metadata": json.loads(lineage.metadata_json or "{}"),
+        "source": source_payload(lineage.source) if lineage.source else None,
     }
 
 
