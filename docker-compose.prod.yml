@@ -105,6 +105,7 @@ services:
       - "443:443"
     environment:
       APIP_DOMAIN: ${APIP_DOMAIN:-apip.openvalidations.com}
+      APIP_DOMAIN_ALIASES: ${APIP_DOMAIN_ALIASES:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null"]
       interval: 30s
