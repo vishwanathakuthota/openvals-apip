@@ -30,34 +30,21 @@ This repository includes the Version 1 APIP foundation:
 
 ## Local Development
 
-API:
+Recommended Mac local development flow:
 
-```bash
-cd services/api
-python -m pip install ".[dev]"
-uvicorn app.main:app --reload
-```
-
-Full stack:
-
-```bash
-docker compose up --build
-```
-
-Web:
-
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+- Full guide: [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md)
+- Start full stack: `make dev`
+- Run migrations: `make migrate`
+- Load seed data: `make seed`
+- Run tests: `make test`
+- Stop services: `make down`
 
 ## Key URLs
 
 - Web: `http://localhost:3000`
 - API: `http://localhost:8000`
 - API docs: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health/ready`
+- Health: `http://localhost:8000/api/v1/health`
 - Methodology: `http://localhost:3000/methodology`
 - About: `http://localhost:3000/about`
 - Disclaimer: `http://localhost:3000/disclaimer`
