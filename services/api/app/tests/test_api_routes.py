@@ -165,12 +165,137 @@ def test_company_validation_dashboard_returns_seeded_beta_companies():
     assert nvidia["source_reviews"]
 
 
+def test_research_operations_dashboard_returns_queue_and_progress_metrics():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/research-operations", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    items = payload["items"]
+    assert {item["company"] for item in items} >= {
+        "Microsoft",
+        "Google",
+        "Meta",
+        "Amazon",
+        "NVIDIA",
+        "OpenAI",
+        "Anthropic",
+        "xAI",
+        "Mistral",
+        "Perplexity",
+    }
+    microsoft = next(item for item in items if item["company"] == "Microsoft")
+    assert microsoft["status"] in {
+        "Not Started",
+        "Researching",
+        "Evidence Collected",
+        "Under Review",
+        "Approved",
+        "Published",
+    }
+    assert microsoft["assigned_to"] == "APIP Admin"
+    assert microsoft["reviewer"] == "APIP Admin"
+    assert microsoft["evidence_count"] >= 1
+    assert microsoft["evidence_coverage_score"] > 0
+    assert microsoft["progress_percent"] > 0
+    metrics = payload["metrics"]
+    assert metrics["total_items"] >= 10
+    assert metrics["assigned_items"] >= 10
+    assert metrics["collected_evidence_count"] >= 10
+    assert metrics["approved_evidence_count"] >= 10
+
+
 def test_admin_routes_require_admin_authentication():
     client = build_client()
 
     response = client.get("/api/v1/admin/dashboard")
 
     assert response.status_code == 401
+
+
+def test_admin_research_assignment_status_evidence_review_and_audit_flow():
+    client = build_client()
+    headers = auth_headers(client)
+
+    queue = client.get("/api/v1/admin/research-queue", headers=headers)
+    assert queue.status_code == 200
+    item = next(entry for entry in queue.json()["items"] if entry["company"] == "OpenAI")
+
+    assignment = client.patch(
+        f"/api/v1/admin/research-queue/{item['id']}/assign",
+        headers=headers,
+        json={"notes": "Assigned for beta research verification."},
+    )
+    assert assignment.status_code == 200
+    assert assignment.json()["assigned_to"] == "APIP Admin"
+
+    status_update = client.patch(
+        f"/api/v1/admin/research-queue/{item['id']}/status",
+        headers=headers,
+        json={"status": "Researching", "notes": "Research resumed for beta verification."},
+    )
+    assert status_update.status_code == 200
+    assert status_update.json()["status"] == "Researching"
+
+    source = client.post(
+        "/api/v1/admin/sources",
+        headers=headers,
+        json={
+            "title": "OpenAI research operations evidence",
+            "source_type": "public_company_statement",
+            "url": "https://openai.com/business/",
+            "publisher": "OpenAI",
+            "status": "pending",
+        },
+    )
+    assert source.status_code == 201
+    source_id = source.json()["id"]
+
+    collection = client.post(
+        f"/api/v1/admin/research-queue/{item['id']}/evidence",
+        headers=headers,
+        json={
+            "source_id": source_id,
+            "evidence_type": "public_company_statement",
+            "notes": "Collected OpenAI business evidence for operations workflow.",
+        },
+    )
+    assert collection.status_code == 201
+    collected = collection.json()
+    assert collected["status"] == "Evidence Collected"
+    evidence = next(entry for entry in collected["evidence"] if entry["source"]["id"] == source_id)
+    assert evidence["approval_status"] == "pending"
+
+    review = client.patch(
+        f"/api/v1/admin/research-evidence/{evidence['id']}/review",
+        headers=headers,
+        json={
+            "approval_status": "approved",
+            "reviewer_notes": "Approved source for research operations.",
+        },
+    )
+    assert review.status_code == 200
+    reviewed = review.json()
+    assert reviewed["status"] == "Under Review"
+    reviewed_evidence = next(entry for entry in reviewed["evidence"] if entry["id"] == evidence["id"])
+    assert reviewed_evidence["approval_status"] == "approved"
+    assert reviewed_evidence["source"]["status"] == "approved"
+
+    progress = client.get("/api/v1/admin/research-progress", headers=headers)
+    assert progress.status_code == 200
+    assert progress.json()["approved_evidence_count"] >= 1
+
+    audit = client.get("/api/v1/admin/research-audit", headers=headers)
+    assert audit.status_code == 200
+    actions = {entry["action"] for entry in audit.json()["items"]}
+    assert {
+        "research.assigned",
+        "research.status_updated",
+        "research.evidence_collected",
+        "research.evidence_reviewed",
+    } <= actions
 
 
 def test_admin_company_validation_review_and_approval_workflow():

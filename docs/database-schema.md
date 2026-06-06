@@ -42,6 +42,9 @@ users 1---n data_lineage
 companies 1---1 company_validations
 company_validations 1---n company_validation_evidence
 company_validations 1---n company_validation_source_reviews
+companies 1---1 research_queue_items
+research_queue_items 1---n research_evidence
+research_queue_items 1---n research_audit_trail
 ```
 
 ## Identity and Access
@@ -314,6 +317,62 @@ Tracks source review decisions for company validations.
 | reviewed_at | timestamptz | Nullable |
 | created_at | timestamptz | Required |
 | updated_at | timestamptz | Required |
+
+### research_queue_items
+
+Tracks company research operations.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| company_id | uuid | Unique FK to `companies.id` |
+| validation_id | uuid | FK to `company_validations.id`, nullable |
+| status | text | `not_started`, `researching`, `evidence_collected`, `under_review`, `approved`, `published` |
+| priority | text | `normal`, `high`, or future priority values |
+| assigned_to_user_id | uuid | FK to `users.id`, nullable |
+| reviewer_user_id | uuid | FK to `users.id`, nullable |
+| progress_percent | numeric(5,2) | Progress metric |
+| evidence_coverage_score | numeric(5,2) | Coverage metric |
+| notes | text | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### research_evidence
+
+Tracks collected research evidence and source approval state.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| queue_item_id | uuid | FK to `research_queue_items.id` |
+| source_id | uuid | FK to `sources.id` |
+| evidence_type | text | Source or evidence category |
+| collection_status | text | Example: `collected` |
+| approval_status | text | `pending`, `approved`, `verified`, `rejected` |
+| coverage_score | numeric(5,2) | Source credibility or coverage value |
+| collected_by_user_id | uuid | FK to `users.id`, nullable |
+| reviewer_user_id | uuid | FK to `users.id`, nullable |
+| reviewer_notes | text | Nullable |
+| collected_at | timestamptz | Nullable |
+| reviewed_at | timestamptz | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### research_audit_trail
+
+Stores immutable research operations audit events.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| queue_item_id | uuid | FK to `research_queue_items.id`, nullable |
+| actor_user_id | uuid | FK to `users.id`, nullable |
+| action | text | Research workflow action |
+| from_status | text | Previous status, nullable |
+| to_status | text | Next status, nullable |
+| notes | text | Nullable |
+| metadata_json | text | Structured audit metadata |
+| created_at | timestamptz | Required |
 
 ### confidence_scores
 

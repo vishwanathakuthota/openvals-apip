@@ -217,6 +217,38 @@ Response:
 }
 ```
 
+## Research Operations
+
+### GET /api/v1/research-operations
+
+Returns research queue items and progress metrics.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "company": "Microsoft",
+      "status": "Under Review",
+      "priority": "high",
+      "assigned_to": "APIP Admin",
+      "reviewer": "APIP Admin",
+      "progress_percent": 100,
+      "evidence_coverage_score": 80,
+      "evidence_count": 4
+    }
+  ],
+  "metrics": {
+    "total_items": 10,
+    "assigned_items": 10,
+    "average_progress_percent": 100,
+    "approved_evidence_count": 40
+  },
+  "next_cursor": null
+}
+```
+
 Lists companies.
 
 Query parameters:

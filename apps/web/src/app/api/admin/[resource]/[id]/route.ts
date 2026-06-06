@@ -16,3 +16,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     body: await request.text()
   });
 }
+
+export async function POST(request: Request, context: RouteContext) {
+  const { resource, id } = await context.params;
+  return adminProxyFetch(`${resource}/${id}`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(request),
+      "Content-Type": "application/json"
+    },
+    body: await request.text()
+  });
+}
