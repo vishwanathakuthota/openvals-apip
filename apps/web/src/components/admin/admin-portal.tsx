@@ -49,6 +49,29 @@ type CompanyValidation = {
   reviewer_notes?: string | null;
   approved_at?: string | null;
 };
+type ResearchQueueItem = {
+  id: string;
+  company: string;
+  status: string;
+  status_key: string;
+  priority: string;
+  assigned_to?: string | null;
+  reviewer?: string | null;
+  progress_percent: number;
+  evidence_coverage_score: number;
+  evidence_count: number;
+  notes?: string | null;
+};
+type ResearchProgress = {
+  total_items: number;
+  status_counts: Record<string, number>;
+  assigned_items: number;
+  unassigned_items: number;
+  average_progress_percent: number;
+  average_evidence_coverage_score: number;
+  collected_evidence_count: number;
+  approved_evidence_count: number;
+};
 type DashboardCounts = Record<string, number>;
 
 const resources = [
@@ -70,6 +93,8 @@ export function AdminPortal() {
   const [sourceMetrics, setSourceMetrics] = useState<SourceMetric[]>([]);
   const [lineage, setLineage] = useState<LineageRecord[]>([]);
   const [companyValidations, setCompanyValidations] = useState<CompanyValidation[]>([]);
+  const [researchQueue, setResearchQueue] = useState<ResearchQueueItem[]>([]);
+  const [researchProgress, setResearchProgress] = useState<ResearchProgress | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
@@ -137,11 +162,22 @@ export function AdminPortal() {
       return;
     }
     const authHeader = { Authorization: `Bearer ${currentToken}` };
-    const [dashboard, metrics, lineageResponse, validationsResponse, audits, ...resourceResponses] = await Promise.all([
+    const [
+      dashboard,
+      metrics,
+      lineageResponse,
+      validationsResponse,
+      researchQueueResponse,
+      researchProgressResponse,
+      audits,
+      ...resourceResponses
+    ] = await Promise.all([
       fetch("/api/admin/dashboard", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/source-metrics", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/lineage", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/company-validations", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/research-queue", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/research-progress", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/audit-logs", { headers: authHeader }).then((response) => response.json()),
       ...resources.map((resource) =>
         fetch(`/api/admin/${resource.key}`, { headers: authHeader }).then((response) => response.json())
@@ -151,6 +187,8 @@ export function AdminPortal() {
     setSourceMetrics(metrics.items ?? []);
     setLineage(lineageResponse.items ?? []);
     setCompanyValidations(validationsResponse.items ?? []);
+    setResearchQueue(researchQueueResponse.items ?? []);
+    setResearchProgress(researchProgressResponse ?? null);
     setAuditLogs(audits.items ?? []);
     setItems(Object.fromEntries(resources.map((resource, index) => [resource.key, resourceResponses[index].items ?? []])));
   }, [token]);
@@ -261,6 +299,40 @@ export function AdminPortal() {
       await refreshAll();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Seed import failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateResearchStatus(id: string, status: string) {
+    setBusy(true);
+    try {
+      await adminFetch(`research-queue/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      setMessage(`Research status moved to ${status.replaceAll("_", " ")}`);
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Research status update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignResearchToMe(id: string) {
+    setBusy(true);
+    try {
+      await adminFetch(`research-queue/${id}/assign`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Assigned from admin research operations dashboard." })
+      });
+      setMessage("Research assigned");
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Research assignment failed");
     } finally {
       setBusy(false);
     }
@@ -429,6 +501,20 @@ export function AdminPortal() {
           onReject={(id) => action(`source-metrics/${id}/reject`, "Metric rejected")}
         />
         <DataLineageTable items={lineage} />
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
+        <div>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Research Operations</p>
+          <h2 className="text-xl font-semibold">Research Queue</h2>
+        </div>
+        <ResearchProgressCards progress={researchProgress} />
+        <ResearchQueueTable
+          busy={busy}
+          items={researchQueue}
+          onAssign={assignResearchToMe}
+          onStatus={updateResearchStatus}
+        />
       </section>
 
       <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
@@ -613,6 +699,92 @@ function DataLineageTable({ items }: { items: LineageRecord[] }) {
   );
 }
 
+function ResearchProgressCards({ progress }: { progress: ResearchProgress | null }) {
+  if (!progress) {
+    return <p className="text-sm text-muted-foreground">Research progress metrics are loading.</p>;
+  }
+  const cards = [
+    ["Total", progress.total_items],
+    ["Assigned", progress.assigned_items],
+    ["Unassigned", progress.unassigned_items],
+    ["Avg Progress", `${progress.average_progress_percent.toFixed(1)}%`],
+    ["Avg Coverage", progress.average_evidence_coverage_score.toFixed(1)],
+    ["Evidence", progress.collected_evidence_count],
+    ["Approved Evidence", progress.approved_evidence_count]
+  ];
+  return (
+    <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+      {cards.map(([label, value]) => (
+        <div className="rounded-md border border-border bg-background p-3" key={String(label)}>
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <strong className="block text-xl">{value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResearchQueueTable({
+  busy,
+  items,
+  onAssign,
+  onStatus
+}: {
+  busy: boolean;
+  items: ResearchQueueItem[];
+  onAssign: (id: string) => void;
+  onStatus: (id: string, status: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[1080px] text-left text-sm">
+        <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="py-3 pr-3">Company</th>
+            <th className="py-3 pr-3">Status</th>
+            <th className="py-3 pr-3">Assigned</th>
+            <th className="py-3 pr-3">Reviewer</th>
+            <th className="py-3 pr-3">Coverage</th>
+            <th className="py-3 pr-3">Progress</th>
+            <th className="py-3 pr-3">Evidence</th>
+            <th className="py-3 pr-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr className="border-b border-border/70" key={item.id}>
+              <td className="py-3 pr-3">{item.company}</td>
+              <td className="py-3 pr-3">
+                <Badge className={statusClass(item.status_key)}>{item.status}</Badge>
+              </td>
+              <td className="py-3 pr-3">{item.assigned_to ?? "Unassigned"}</td>
+              <td className="py-3 pr-3">{item.reviewer ?? "Unassigned"}</td>
+              <td className="py-3 pr-3 tabular-nums">{item.evidence_coverage_score.toFixed(1)}</td>
+              <td className="py-3 pr-3 tabular-nums">{item.progress_percent.toFixed(1)}%</td>
+              <td className="py-3 pr-3">{item.evidence_count}</td>
+              <td className="flex flex-wrap gap-2 py-3 pr-3">
+                <Button disabled={busy} onClick={() => onAssign(item.id)} size="sm" variant="outline">
+                  Assign
+                </Button>
+                <Button disabled={busy} onClick={() => onStatus(item.id, "researching")} size="sm" variant="outline">
+                  Researching
+                </Button>
+                <Button disabled={busy} onClick={() => onStatus(item.id, "under_review")} size="sm" variant="outline">
+                  Review
+                </Button>
+                <Button disabled={busy} onClick={() => onStatus(item.id, "published")} size="sm">
+                  Publish
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No research queue items yet.</p> : null}
+    </div>
+  );
+}
+
 function CompanyValidationTable({
   busy,
   items,
@@ -671,13 +843,19 @@ function CompanyValidationTable({
 
 function statusClass(status: string) {
   return cn(
-    status === "approved" || status === "active"
+    status === "approved" || status === "active" || status === "published"
       ? "border-emerald-500/50 text-emerald-300"
       : "",
     status === "rejected" || status === "archived" || status === "revoked"
       ? "border-red-500/50 text-red-300"
       : "",
-    status === "pending" ? "border-amber-500/50 text-amber-300" : ""
+    status === "pending" ||
+      status === "not_started" ||
+      status === "researching" ||
+      status === "evidence_collected" ||
+      status === "under_review"
+      ? "border-amber-500/50 text-amber-300"
+      : ""
   );
 }
 

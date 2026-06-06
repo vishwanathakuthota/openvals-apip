@@ -221,6 +221,80 @@ class CompanyValidationSourceReview(TimestampMixin, Base):
     reviewed_by: Mapped[User | None] = relationship()
 
 
+class ResearchQueueItem(TimestampMixin, Base):
+    __tablename__ = "research_queue_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), unique=True, index=True)
+    validation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("company_validations.id"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(40), default="not_started", index=True)
+    priority: Mapped[str] = mapped_column(String(40), default="normal", index=True)
+    assigned_to_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    progress_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    evidence_coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    company: Mapped[Company] = relationship()
+    validation: Mapped[CompanyValidation | None] = relationship()
+    assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_user_id])
+    reviewer: Mapped[User | None] = relationship(foreign_keys=[reviewer_user_id])
+    evidence_items: Mapped[list["ResearchEvidence"]] = relationship(back_populates="queue_item")
+
+
+class ResearchEvidence(TimestampMixin, Base):
+    __tablename__ = "research_evidence"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    queue_item_id: Mapped[str] = mapped_column(ForeignKey("research_queue_items.id"), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    evidence_type: Mapped[str] = mapped_column(String(120), index=True)
+    collection_status: Mapped[str] = mapped_column(String(40), default="collected", index=True)
+    approval_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    collected_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    queue_item: Mapped[ResearchQueueItem] = relationship(back_populates="evidence_items")
+    source: Mapped[Source] = relationship()
+    collected_by: Mapped[User | None] = relationship(foreign_keys=[collected_by_user_id])
+    reviewer: Mapped[User | None] = relationship(foreign_keys=[reviewer_user_id])
+
+
+class ResearchAuditTrail(Base):
+    __tablename__ = "research_audit_trail"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    queue_item_id: Mapped[str | None] = mapped_column(
+        ForeignKey("research_queue_items.id"), nullable=True, index=True
+    )
+    actor_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(120), index=True)
+    from_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    queue_item: Mapped[ResearchQueueItem | None] = relationship()
+    actor: Mapped[User | None] = relationship()
+
+
 class SourceMetric(TimestampMixin, Base):
     __tablename__ = "source_metrics"
 

@@ -22,16 +22,32 @@ from app.db.models import (
     MetricSource,
     MetricValue,
     MetricVersion,
+    ResearchAuditTrail,
+    ResearchEvidence,
+    ResearchQueueItem,
     Source,
     SourceMetric,
 )
 from app.db.seed import seed_database
+from app.api.routes.research import (
+    progress_metrics_payload,
+    research_audit_payload,
+    research_queue_payload,
+)
 from app.api.routes.validations import company_validation_payload
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 from app.domains.ingestion.connectors import ManualResearchConnector
+from app.domains.research.service import (
+    assign_research,
+    collect_research_evidence,
+    recalculate_research_progress,
+    review_research_evidence,
+    update_research_status,
+    write_research_audit,
+)
 from app.domains.validation.service import (
     approve_validation,
     attach_source_evidence,
@@ -67,6 +83,7 @@ def admin_dashboard(
             "api_keys": len(db.scalars(select(ApiKey)).all()),
             "data_lineage": len(db.scalars(select(DataLineage)).all()),
             "company_validations": len(db.scalars(select(CompanyValidation)).all()),
+            "research_queue": len(db.scalars(select(ResearchQueueItem)).all()),
         }
     }
 
@@ -745,6 +762,163 @@ def admin_reject_company_validation(
     )
     db.commit()
     return company_validation_payload(validation)
+
+
+@router.get("/research-queue")
+def admin_research_queue(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(ResearchQueueItem).order_by(ResearchQueueItem.created_at)).all()
+    return {"items": [research_queue_payload(item) for item in items]}
+
+
+@router.get("/research-progress")
+def admin_research_progress(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(ResearchQueueItem).order_by(ResearchQueueItem.created_at)).all()
+    return progress_metrics_payload(items)
+
+
+@router.get("/research-audit")
+def admin_research_audit(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    audits = db.scalars(
+        select(ResearchAuditTrail).order_by(ResearchAuditTrail.created_at.desc()).limit(100)
+    ).all()
+    return {"items": [research_audit_payload(item) for item in audits], "next_cursor": None}
+
+
+@router.patch("/research-queue/{queue_item_id}/assign")
+def admin_assign_research_queue_item(
+    queue_item_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    item = get_or_404(db, ResearchQueueItem, queue_item_id, "research_queue_item_not_found")
+    previous_assignee = item.assigned_to_user_id
+    assign_research(
+        item,
+        assigned_to_user_id=optional_text(payload.get("assigned_to_user_id")) or claims["sub"],
+        reviewer_user_id=optional_text(payload.get("reviewer_user_id")) or claims["sub"],
+        notes=optional_text(payload.get("notes")),
+    )
+    write_research_audit(
+        db,
+        queue_item_id=item.id,
+        actor_user_id=claims["sub"],
+        action="research.assigned",
+        from_status=item.status,
+        to_status=item.status,
+        notes=item.notes,
+        metadata={"previous_assignee": previous_assignee, "assigned_to_user_id": item.assigned_to_user_id},
+    )
+    db.commit()
+    return research_queue_payload(item)
+
+
+@router.patch("/research-queue/{queue_item_id}/status")
+def admin_update_research_queue_status(
+    queue_item_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    item = get_or_404(db, ResearchQueueItem, queue_item_id, "research_queue_item_not_found")
+    previous_status = item.status
+    update_research_status(
+        item,
+        status=required_text(payload, "status"),
+        notes=optional_text(payload.get("notes")),
+    )
+    recalculate_research_progress(item)
+    write_research_audit(
+        db,
+        queue_item_id=item.id,
+        actor_user_id=claims["sub"],
+        action="research.status_updated",
+        from_status=previous_status,
+        to_status=item.status,
+        notes=item.notes,
+        metadata={"company_id": item.company_id},
+    )
+    db.commit()
+    return research_queue_payload(item)
+
+
+@router.post("/research-queue/{queue_item_id}/evidence", status_code=status.HTTP_201_CREATED)
+def admin_collect_research_evidence(
+    queue_item_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    item = get_or_404(db, ResearchQueueItem, queue_item_id, "research_queue_item_not_found")
+    source = get_or_404(db, Source, required_text(payload, "source_id"), "source_not_found")
+    evidence = collect_research_evidence(
+        db,
+        item,
+        source,
+        collected_by_user_id=claims["sub"],
+        evidence_type=optional_text(payload.get("evidence_type")) or source.source_type,
+    )
+    update_research_status(item, "evidence_collected", notes=optional_text(payload.get("notes")))
+    recalculate_research_progress(item)
+    write_research_audit(
+        db,
+        queue_item_id=item.id,
+        actor_user_id=claims["sub"],
+        action="research.evidence_collected",
+        from_status=None,
+        to_status=item.status,
+        notes=item.notes,
+        metadata={"source_id": source.id, "research_evidence_id": evidence.id},
+    )
+    db.commit()
+    return research_queue_payload(item)
+
+
+@router.patch("/research-evidence/{evidence_id}/review")
+def admin_review_research_evidence(
+    evidence_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    evidence = get_or_404(db, ResearchEvidence, evidence_id, "research_evidence_not_found")
+    review_research_evidence(
+        evidence,
+        approval_status=required_text(payload, "approval_status"),
+        reviewer_user_id=claims["sub"],
+        reviewer_notes=optional_text(payload.get("reviewer_notes")),
+    )
+    if evidence.approval_status in {"approved", "verified"}:
+        evidence.source.status = "approved"
+    elif evidence.approval_status == "rejected":
+        evidence.source.status = "rejected"
+    update_research_status(evidence.queue_item, "under_review", notes=evidence.reviewer_notes)
+    recalculate_research_progress(evidence.queue_item)
+    write_research_audit(
+        db,
+        queue_item_id=evidence.queue_item_id,
+        actor_user_id=claims["sub"],
+        action="research.evidence_reviewed",
+        from_status=None,
+        to_status=evidence.queue_item.status,
+        notes=evidence.reviewer_notes,
+        metadata={
+            "research_evidence_id": evidence.id,
+            "source_id": evidence.source_id,
+            "approval_status": evidence.approval_status,
+        },
+    )
+    db.commit()
+    return research_queue_payload(evidence.queue_item)
 
 
 @router.get("/lineage")

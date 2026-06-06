@@ -15,12 +15,20 @@ from app.db.models import (
     MetricDefinition,
     MetricSource,
     MetricValue,
+    ResearchQueueItem,
     Source,
     User,
 )
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
+from app.domains.research.service import (
+    collect_research_evidence,
+    ensure_research_queue_item,
+    review_research_evidence,
+    update_research_status,
+    write_research_audit,
+)
 from app.domains.sources.registry import BETA_COMPANIES, SOURCE_REGISTRY
 from app.domains.validation.service import (
     attach_source_evidence,
@@ -347,7 +355,16 @@ def seed_database(db: Session) -> None:
                 beta_sources(company_slug),
                 beta_methodology(company_slug, metric_key),
             )
-        seed_company_validation(db, companies[company_slug], beta_sources(company_slug), admin.id)
+        validation = seed_company_validation(
+            db, companies[company_slug], beta_sources(company_slug), admin.id
+        )
+        seed_research_queue_item(
+            db,
+            companies[company_slug],
+            validation,
+            beta_sources(company_slug),
+            admin.id,
+        )
 
     us_sources = [
         source_map["stanford-ai-index"],
@@ -522,6 +539,47 @@ def seed_company_validation(
         review.reviewed_at = datetime.now(UTC)
     recalculate_company_validation(validation)
     return validation
+
+
+def seed_research_queue_item(
+    db: Session,
+    company: Company,
+    validation: CompanyValidation,
+    sources: list[Source],
+    actor_user_id: str,
+) -> ResearchQueueItem:
+    item = ensure_research_queue_item(db, company, validation)
+    item.assigned_to_user_id = actor_user_id
+    item.reviewer_user_id = actor_user_id
+    item.priority = "high" if company.slug in {"microsoft", "google", "meta", "amazon", "nvidia"} else "normal"
+    item.notes = "Seeded APIP beta research queue item using approved source registry evidence."
+    previous_status = item.status
+    update_research_status(item, "under_review", notes=item.notes)
+    for source in sources:
+        evidence = collect_research_evidence(
+            db,
+            item,
+            source,
+            collected_by_user_id=actor_user_id,
+            evidence_type=source.source_type,
+        )
+        review_research_evidence(
+            evidence,
+            approval_status="approved",
+            reviewer_user_id=actor_user_id,
+            reviewer_notes="Approved from APIP beta source registry during seed import.",
+        )
+    write_research_audit(
+        db,
+        queue_item_id=item.id,
+        actor_user_id=actor_user_id,
+        action="research_queue.seeded",
+        from_status=previous_status,
+        to_status=item.status,
+        notes=item.notes,
+        metadata={"company_id": company.id, "company": company.name},
+    )
+    return item
 
 
 def seed_metric(
