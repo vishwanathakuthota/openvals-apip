@@ -16,7 +16,10 @@ def list_company_validations(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     validations = db.scalars(select(CompanyValidation).order_by(CompanyValidation.created_at)).all()
-    return {"items": [company_validation_payload(item) for item in validations], "next_cursor": None}
+    return {
+        "items": [company_validation_payload(item) for item in validations],
+        "next_cursor": None,
+    }
 
 
 @router.get("/company-validations/{validation_id}")

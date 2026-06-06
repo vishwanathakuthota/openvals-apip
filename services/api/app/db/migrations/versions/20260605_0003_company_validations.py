@@ -33,7 +33,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["reviewed_by_user_id"], ["users.id"]),
         sa.ForeignKeyConstraint(["approved_by_user_id"], ["users.id"]),
     )
-    op.create_index("ix_company_validations_company_id", "company_validations", ["company_id"], unique=True)
+    op.create_index(
+        "ix_company_validations_company_id", "company_validations", ["company_id"], unique=True
+    )
     op.create_index("ix_company_validations_status", "company_validations", ["status"])
     op.create_index(
         "ix_company_validations_reviewed_by_user_id",
@@ -68,7 +70,9 @@ def upgrade() -> None:
         "company_validation_evidence",
         ["validation_id"],
     )
-    op.create_index("ix_company_validation_evidence_source_id", "company_validation_evidence", ["source_id"])
+    op.create_index(
+        "ix_company_validation_evidence_source_id", "company_validation_evidence", ["source_id"]
+    )
     op.create_index(
         "ix_company_validation_evidence_evidence_type",
         "company_validation_evidence",

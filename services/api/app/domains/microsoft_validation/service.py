@@ -29,7 +29,11 @@ MICROSOFT_SECTION_SOURCE_MAP = {
     "revenue_evidence": ["sec_filing", "annual_report"],
     "ai_revenue_evidence": ["annual_report", "earnings_call", "investor_presentation"],
     "ai_investment_evidence": ["sec_filing", "annual_report", "earnings_call"],
-    "infrastructure_investment_evidence": ["annual_report", "earnings_call", "investor_presentation"],
+    "infrastructure_investment_evidence": [
+        "annual_report",
+        "earnings_call",
+        "investor_presentation",
+    ],
     "earnings_call_evidence": ["earnings_call"],
     "investor_presentation_evidence": ["investor_presentation"],
 }
@@ -60,9 +64,15 @@ MICROSOFT_VALIDATION_SECTIONS = [
     MicrosoftValidationSectionSpec(
         key="ai_revenue_evidence",
         title="AI Revenue Evidence",
-        description="Tracks AI-related revenue signals across cloud, Copilot, and AI product disclosures.",
+        description=(
+            "Tracks AI-related revenue signals across cloud, Copilot, and AI "
+            "product disclosures."
+        ),
         required_source_types=MICROSOFT_SECTION_SOURCE_MAP["ai_revenue_evidence"],
-        reviewer_notes="AI revenue remains a sourced estimate because Microsoft does not report a full audited AI segment.",
+        reviewer_notes=(
+            "AI revenue remains a sourced estimate because Microsoft does not "
+            "report a full audited AI segment."
+        ),
         methodology_trace=(
             "Use public company evidence to map AI revenue signals to APIP metric definitions; "
             "label direct disclosure gaps in methodology notes."
@@ -71,9 +81,15 @@ MICROSOFT_VALIDATION_SECTIONS = [
     MicrosoftValidationSectionSpec(
         key="ai_investment_evidence",
         title="AI Investment Evidence",
-        description="Tracks AI investment commitments, operating spend, and AI product investment disclosures.",
+        description=(
+            "Tracks AI investment commitments, operating spend, and AI product "
+            "investment disclosures."
+        ),
         required_source_types=MICROSOFT_SECTION_SOURCE_MAP["ai_investment_evidence"],
-        reviewer_notes="AI investment evidence is cross-checked against filings and earnings commentary.",
+        reviewer_notes=(
+            "AI investment evidence is cross-checked against filings and earnings "
+            "commentary."
+        ),
         methodology_trace=(
             "Separate AI investment from general R&D where possible, and preserve source-level "
             "lineage when a metric uses infrastructure or product investment proxies."
@@ -82,9 +98,15 @@ MICROSOFT_VALIDATION_SECTIONS = [
     MicrosoftValidationSectionSpec(
         key="infrastructure_investment_evidence",
         title="Infrastructure Investment Evidence",
-        description="Validates cloud, data center, accelerator, and AI infrastructure investment signals.",
+        description=(
+            "Validates cloud, data center, accelerator, and AI infrastructure "
+            "investment signals."
+        ),
         required_source_types=MICROSOFT_SECTION_SOURCE_MAP["infrastructure_investment_evidence"],
-        reviewer_notes="Infrastructure investment is tracked separately because it is a major AI economics driver.",
+        reviewer_notes=(
+            "Infrastructure investment is tracked separately because it is a major "
+            "AI economics driver."
+        ),
         methodology_trace=(
             "Map infrastructure evidence to AI spend methodology only when the source explicitly "
             "connects capacity, cloud, or data center investment to AI demand."
@@ -93,18 +115,27 @@ MICROSOFT_VALIDATION_SECTIONS = [
     MicrosoftValidationSectionSpec(
         key="earnings_call_evidence",
         title="Earnings Call Evidence",
-        description="Captures management commentary and call transcript evidence used for cross verification.",
+        description=(
+            "Captures management commentary and call transcript evidence used for "
+            "cross verification."
+        ),
         required_source_types=MICROSOFT_SECTION_SOURCE_MAP["earnings_call_evidence"],
-        reviewer_notes="Earnings call evidence is approved when the transcript source is attributable and dated.",
+        reviewer_notes=(
+            "Earnings call evidence is approved when the transcript source is "
+            "attributable and dated."
+        ),
         methodology_trace=(
-            "Use earnings calls for management commentary and cross-verification, not as standalone "
-            "audited financial proof."
+            "Use earnings calls for management commentary and cross-verification, "
+            "not as standalone audited financial proof."
         ),
     ),
     MicrosoftValidationSectionSpec(
         key="investor_presentation_evidence",
         title="Investor Presentation Evidence",
-        description="Tracks investor presentation and deck evidence used to explain AI product and investment claims.",
+        description=(
+            "Tracks investor presentation and deck evidence used to explain AI "
+            "product and investment claims."
+        ),
         required_source_types=MICROSOFT_SECTION_SOURCE_MAP["investor_presentation_evidence"],
         reviewer_notes="Investor presentation evidence is approved as Tier 2 source support.",
         methodology_trace=(
@@ -253,7 +284,9 @@ def review_workspace_source(
     workspace_evidence.reviewer_notes = reviewer_notes
     workspace_evidence.reviewed_by_user_id = reviewer_user_id
     workspace_evidence.reviewed_at = datetime.now(UTC)
-    workspace_evidence.source.status = "approved" if normalized in {"approved", "verified"} else "rejected"
+    workspace_evidence.source.status = (
+        "approved" if normalized in {"approved", "verified"} else "rejected"
+    )
     recalculate_section_score(workspace_evidence.section)
     recalculate_workspace_scores(workspace_evidence.section.workspace)
 
@@ -280,14 +313,21 @@ def recalculate_section_score(section: CompanyValidationWorkspaceSection) -> Non
     ]
     approved_source_types = {link.source.source_type for link in approved_links}
     coverage = (
-        len(required_source_types.intersection(approved_source_types)) / len(required_source_types) * 100
+        len(required_source_types.intersection(approved_source_types))
+        / len(required_source_types)
+        * 100
         if required_source_types
         else 0
     )
     credibility = average(
-        [source_credibility_score(link.source.source_type, link.source.published_at) for link in approved_links]
+        [
+            source_credibility_score(link.source.source_type, link.source.published_at)
+            for link in approved_links
+        ]
     )
-    approval_ratio = len(approved_links) / len(section.evidence_links) if section.evidence_links else 0
+    approval_ratio = (
+        len(approved_links) / len(section.evidence_links) if section.evidence_links else 0
+    )
     section.coverage_score = round(coverage, 2)
     section.openvals_validation_score = round(
         (coverage * 0.45) + (credibility * 0.40) + (approval_ratio * 100 * 0.15),
@@ -424,9 +464,11 @@ def sorted_sections(
 def workspace_methodology_trace() -> str:
     return (
         "Gold Standard v1 validates Microsoft through six required evidence sections. "
-        "Each section stores source lineage, reviewer notes, approval status, and methodology traceability. "
-        "Workspace coverage is the average section coverage. Workspace OpenVals score is the average "
-        "section score, where each section uses coverage 45%, source credibility 40%, and approved-source ratio 15%."
+        "Each section stores source lineage, reviewer notes, approval status, and "
+        "methodology traceability. Workspace coverage is the average section "
+        "coverage. Workspace OpenVals score is the average section score, where "
+        "each section uses coverage 45%, source credibility 40%, and "
+        "approved-source ratio 15%."
     )
 
 

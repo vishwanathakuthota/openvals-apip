@@ -141,7 +141,9 @@ class DataLineage(Base):
     source_type: Mapped[str] = mapped_column(String(120), index=True)
     confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
     imported_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    imported_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     import_batch_id: Mapped[str] = mapped_column(String(36), index=True)
     action: Mapped[str] = mapped_column(String(80), default="imported", index=True)
     metadata_json: Mapped[str] = mapped_column(Text)
@@ -183,9 +185,7 @@ class CompanyValidationEvidence(TimestampMixin, Base):
     __tablename__ = "company_validation_evidence"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
-    validation_id: Mapped[str] = mapped_column(
-        ForeignKey("company_validations.id"), index=True
-    )
+    validation_id: Mapped[str] = mapped_column(ForeignKey("company_validations.id"), index=True)
     source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
     evidence_type: Mapped[str] = mapped_column(String(120), index=True)
     coverage_weight: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
@@ -205,9 +205,7 @@ class CompanyValidationSourceReview(TimestampMixin, Base):
     __tablename__ = "company_validation_source_reviews"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
-    validation_id: Mapped[str] = mapped_column(
-        ForeignKey("company_validations.id"), index=True
-    )
+    validation_id: Mapped[str] = mapped_column(ForeignKey("company_validations.id"), index=True)
     source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
     review_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
     reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -440,7 +438,9 @@ class AutonomousEvidenceRecord(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
-    metric_definition_id: Mapped[str] = mapped_column(ForeignKey("metric_definitions.id"), index=True)
+    metric_definition_id: Mapped[str] = mapped_column(
+        ForeignKey("metric_definitions.id"), index=True
+    )
     metric_value_id: Mapped[str | None] = mapped_column(
         ForeignKey("metric_values.id"), nullable=True, index=True
     )
@@ -462,11 +462,17 @@ class AutonomousEvidenceRecord(TimestampMixin, Base):
     transparency_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
     reproducibility_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
     source_quality_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
-    validation_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    validation_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     validation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     validation_status: Mapped[str] = mapped_column(String(40), default="Collected", index=True)
-    approval_recommendation: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
-    reviewer_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    approval_recommendation: Mapped[str | None] = mapped_column(
+        String(80), nullable=True, index=True
+    )
+    reviewer_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewer_decision: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -476,7 +482,9 @@ class AutonomousEvidenceRecord(TimestampMixin, Base):
 
     company: Mapped[Company] = relationship()
     metric_definition: Mapped[MetricDefinition] = relationship()
-    metric_value: Mapped[MetricValue | None] = relationship(back_populates="autonomous_evidence_records")
+    metric_value: Mapped[MetricValue | None] = relationship(
+        back_populates="autonomous_evidence_records"
+    )
     source: Mapped[Source] = relationship()
     reviewer: Mapped[User | None] = relationship()
 

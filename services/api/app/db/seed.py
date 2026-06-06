@@ -20,13 +20,13 @@ from app.db.models import (
     User,
 )
 from app.db.session import SessionLocal
-from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.autonomous_research.service import (
-    run_microsoft_pilot_validation,
     run_approval_agent,
+    run_microsoft_pilot_validation,
     run_research_agent,
     run_validation_agent,
 )
+from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
 from app.domains.microsoft_validation.service import (
     ensure_microsoft_validation_workspace,
@@ -403,7 +403,8 @@ def seed_database(db: Session) -> None:
         165_000_000_000,
         "usd",
         us_sources,
-        "United States beta AI revenue aggregates company-level AI infrastructure and AI application evidence from institutional source registries.",
+        "United States beta AI revenue aggregates company-level AI infrastructure "
+        "and AI application evidence from institutional source registries.",
     )
     seed_metric(db, definitions["roi"], "country", countries["US"].id, 0.74, None, us_sources)
     seed_metric(
@@ -532,8 +533,9 @@ def upsert_source(
 def beta_methodology(company_slug: str, metric_key: str) -> str:
     return (
         f"APIP beta {company_slug} {metric_key} is normalized from approved source registry "
-        "evidence. Direct AI economics disclosure varies by company, so APIP stores the source-backed "
-        "proxy with confidence and evidence coverage rather than treating it as a final audited AI segment."
+        "evidence. Direct AI economics disclosure varies by company, so APIP stores "
+        "the source-backed proxy with confidence and evidence coverage rather than "
+        "treating it as a final audited AI segment."
     )
 
 
@@ -578,7 +580,9 @@ def seed_research_queue_item(
     item = ensure_research_queue_item(db, company, validation)
     item.assigned_to_user_id = actor_user_id
     item.reviewer_user_id = actor_user_id
-    item.priority = "high" if company.slug in {"microsoft", "google", "meta", "amazon", "nvidia"} else "normal"
+    item.priority = (
+        "high" if company.slug in {"microsoft", "google", "meta", "amazon", "nvidia"} else "normal"
+    )
     item.notes = "Seeded APIP beta research queue item using approved source registry evidence."
     previous_status = item.status
     update_research_status(item, "under_review", notes=item.notes)

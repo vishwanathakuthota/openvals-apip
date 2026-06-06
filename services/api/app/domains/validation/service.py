@@ -99,23 +99,25 @@ def ensure_source_review(
 
 def recalculate_company_validation(validation: CompanyValidation) -> ValidationScores:
     evidence_items = list(validation.evidence_items)
-    approved_evidence = [
-        item for item in evidence_items if item.review_status in APPROVED_STATUSES
-    ]
+    approved_evidence = [item for item in evidence_items if item.review_status in APPROVED_STATUSES]
     scored_sources = [item.source for item in approved_evidence] or [
         item.source for item in evidence_items
     ]
     coverage = evidence_coverage_score(scored_sources)
     confidence_score = average(
-        [source_credibility_score(item.source.source_type, item.source.published_at) for item in approved_evidence]
+        [
+            source_credibility_score(item.source.source_type, item.source.published_at)
+            for item in approved_evidence
+        ]
     )
     if confidence_score == 0:
         confidence_score = average(
-            [source_credibility_score(item.source.source_type, item.source.published_at) for item in evidence_items]
+            [
+                source_credibility_score(item.source.source_type, item.source.published_at)
+                for item in evidence_items
+            ]
         )
-    approved_ratio = (
-        len(approved_evidence) / len(evidence_items) if evidence_items else 0
-    )
+    approved_ratio = len(approved_evidence) / len(evidence_items) if evidence_items else 0
     openvals_score = round(
         (coverage.score * 0.40) + (confidence_score * 0.40) + (approved_ratio * 100 * 0.20),
         2,

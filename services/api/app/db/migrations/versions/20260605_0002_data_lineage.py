@@ -25,7 +25,9 @@ def upgrade() -> None:
         sa.Column("source_type", sa.String(length=120), nullable=False),
         sa.Column("confidence_score", sa.Numeric(5, 2), nullable=False),
         sa.Column("imported_by_user_id", sa.String(length=36), nullable=False),
-        sa.Column("imported_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "imported_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("import_batch_id", sa.String(length=36), nullable=False),
         sa.Column("action", sa.String(length=80), nullable=False),
         sa.Column("metadata_json", sa.Text(), nullable=False),

@@ -1,6 +1,6 @@
-from app.workers.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.domains.autonomous_research.service import run_research_agent
+from app.workers.celery_app import celery_app
 
 
 @celery_app.task(name="apip.recalculate_metrics")

@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin, require_api_key
 from app.db.models import AutonomousEvidenceRecord
 from app.domains.autonomous_research.service import (
-    ADDITIONAL_EVIDENCE_REQUESTED,
     APPROVED,
     PUBLISHED,
-    REJECTED,
     UNDER_REVIEW,
     approve_evidence_record,
     company_openvals_score_payload,
@@ -18,8 +16,8 @@ from app.domains.autonomous_research.service import (
     reject_evidence_record,
     request_additional_evidence,
     run_approval_agent,
-    run_publisher_agent,
     run_microsoft_pilot_validation,
+    run_publisher_agent,
     run_research_agent,
     run_validation_agent,
     trust_center_payload,
@@ -136,7 +134,10 @@ def public_approval_queue(
         .where(AutonomousEvidenceRecord.status == UNDER_REVIEW)
         .order_by(AutonomousEvidenceRecord.validation_timestamp.desc())
     ).all()
-    return {"queue": "Approval Queue", "items": [evidence_record_payload(record) for record in records]}
+    return {
+        "queue": "Approval Queue",
+        "items": [evidence_record_payload(record) for record in records],
+    }
 
 
 @router.get("/publishing-queue")
