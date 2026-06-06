@@ -1,12 +1,15 @@
 import { fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
 import type {
   CollectionResponse,
+  AutonomousEvidenceRecord,
+  CompanyOpenValsScore,
   Entity,
   EntityType,
   MetricValue,
   MicrosoftValidationReport,
   RealityIndexItem,
   Scoreboard,
+  SourceLineage,
   TrustCenter
 } from "@/types/api";
 
@@ -115,6 +118,53 @@ export function fetchMicrosoftValidationReport() {
 
 export function fetchTrustCenter() {
   return apiFetch<TrustCenter>("trust-center", {
+    workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+    auto_publish_enabled: false,
+    metrics: {
+      total_records: 0,
+      published_records: 0,
+      approved_records: 0,
+      under_review_records: 0,
+      manual_review_required: 0,
+      average_confidence: 0,
+      average_openvals_score: 0,
+      public_lineage_records: 0
+    },
+    items: []
+  });
+}
+
+export function fetchMicrosoftEvidenceTimeline() {
+  return apiFetch<CollectionResponse<AutonomousEvidenceRecord>>(
+    "companies/microsoft/evidence-timeline",
+    { items: [], next_cursor: null }
+  );
+}
+
+export function fetchMicrosoftSourceLineage() {
+  return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
+    "companies/microsoft/source-lineage",
+    { company: "Microsoft", items: [], next_cursor: null }
+  );
+}
+
+export function fetchMicrosoftOpenValsScore() {
+  return apiFetch<CompanyOpenValsScore>("companies/microsoft/openvals-score", {
+    company: "Microsoft",
+    company_slug: "microsoft",
+    openvals_score: 0,
+    classification: "Weak",
+    published_records: 0,
+    evidence_coverage_score: 0,
+    confidence_score: 0,
+    source_count: 0,
+    last_updated: null,
+    methodology_note: "Microsoft pilot validation data is not available yet."
+  });
+}
+
+export function fetchMicrosoftTrustReport() {
+  return apiFetch<TrustCenter>("companies/microsoft/trust-report", {
     workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
     auto_publish_enabled: false,
     metrics: {

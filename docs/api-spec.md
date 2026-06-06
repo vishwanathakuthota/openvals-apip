@@ -708,6 +708,35 @@ Request:
 
 Refreshes the Microsoft validation report export, updates `exported_at`, writes an audit log, and returns the report payload.
 
+## Microsoft End-to-End Validation Pilot
+
+### GET /api/v1/companies/microsoft/evidence-timeline
+
+Returns Microsoft evidence records across collection, validation, approval, and publication.
+
+### GET /api/v1/companies/microsoft/source-lineage
+
+Returns published Microsoft source lineage records with source URL, source type, collection date, confidence, evidence coverage, reviewer, and approval date.
+
+### GET /api/v1/companies/microsoft/openvals-score
+
+Returns the company-level Microsoft OpenVals Score, classification, confidence average, evidence coverage average, source count, and methodology note.
+
+### GET /api/v1/companies/microsoft/trust-report
+
+Returns the Microsoft-only trust report after the validation pilot.
+
+### POST /api/v1/admin/microsoft-pilot-validation/run
+
+Runs the Microsoft end-to-end validation pilot:
+
+1. Research Agent collects Microsoft evidence.
+2. Validation Agent scores evidence.
+3. Confidence, Evidence Coverage, and OpenVals Score engines run.
+4. Records enter approval review.
+5. APIP Admin approves pilot evidence.
+6. Publisher Agent publishes approved Microsoft records.
+
 ## Autonomous Research Operations
 
 ### GET /api/v1/trust-center

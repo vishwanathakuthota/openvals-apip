@@ -22,6 +22,7 @@ from app.db.models import (
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.autonomous_research.service import (
+    run_microsoft_pilot_validation,
     run_approval_agent,
     run_research_agent,
     run_validation_agent,
@@ -481,6 +482,7 @@ def seed_database(db: Session) -> None:
     run_research_agent(db)
     run_validation_agent(db)
     run_approval_agent(db)
+    run_microsoft_pilot_validation(db, admin.id)
 
     db.add(admin)
     db.commit()

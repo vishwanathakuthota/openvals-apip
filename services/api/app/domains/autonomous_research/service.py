@@ -27,6 +27,7 @@ from app.domains.confidence.service import (
 from app.domains.sources.credibility import evidence_coverage_score, source_credibility_score
 
 PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
+MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
 COLLECTED = "Collected"
 UNDER_REVIEW = "Under Review"
 APPROVED = "Approved"
@@ -182,6 +183,49 @@ def run_publisher_agent(db: Session) -> AgentRunResult:
     for record in records:
         publish_evidence_record(db, record)
     return AgentRunResult(agent="Publisher Agent", processed_count=len(records))
+
+
+def run_microsoft_pilot_validation(
+    db: Session,
+    reviewer_user_id: str,
+) -> dict[str, object]:
+    run_research_agent(db)
+    run_validation_agent(db)
+    run_approval_agent(db)
+    records = microsoft_evidence_records(db)
+    approved_count = 0
+    for record in records:
+        if record.status in {PUBLISHED, REJECTED}:
+            continue
+        if record.status == COLLECTED:
+            validate_evidence_record(db, record)
+        approve_evidence_record(
+            record,
+            reviewer_user_id=reviewer_user_id,
+            notes=(
+                "Approved in the Microsoft end-to-end validation pilot after Research, "
+                "Validation, Confidence, Evidence Coverage, and OpenVals Score checks."
+            ),
+        )
+        write_agent_audit(
+            db,
+            action="microsoft_pilot.approved",
+            record=record,
+            metadata={"pilot": "microsoft_end_to_end_validation"},
+        )
+        approved_count += 1
+    published = 0
+    for record in microsoft_evidence_records(db):
+        if record.status == APPROVED:
+            publish_evidence_record(db, record)
+            published += 1
+    return {
+        "company": "Microsoft",
+        "status": "fully_validated",
+        "approved_count": approved_count,
+        "published_count": published,
+        "records": [evidence_record_payload(record) for record in microsoft_evidence_records(db)],
+    }
 
 
 def publish_evidence_record(db: Session, record: AutonomousEvidenceRecord) -> MetricValue:
@@ -350,6 +394,49 @@ def evidence_record_payload(record: AutonomousEvidenceRecord) -> dict[str, objec
     }
 
 
+def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
+    records = company_evidence_records(db, company_slug)
+    metrics = trust_center_payload(records)
+    return {
+        "company": records[0].company.name if records else company_slug.title(),
+        "company_slug": company_slug,
+        "status": "fully_validated" if records and all(record.status == PUBLISHED for record in records) else "in_progress",
+        "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+        "metrics": metrics,
+        "items": [evidence_record_payload(record) for record in records],
+    }
+
+
+def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, object]:
+    records = company_evidence_records(db, company_slug)
+    score = average([float(record.openvals_score) for record in records if record.status == PUBLISHED])
+    return {
+        "company": records[0].company.name if records else company_slug.title(),
+        "company_slug": company_slug,
+        "openvals_score": score,
+        "classification": openvals_classification(score),
+        "published_records": len([record for record in records if record.status == PUBLISHED]),
+        "evidence_coverage_score": average(
+            [float(record.evidence_coverage_score) for record in records if record.status == PUBLISHED]
+        ),
+        "confidence_score": average(
+            [float(record.confidence_score) for record in records if record.status == PUBLISHED]
+        ),
+        "source_count": len({record.source_id for record in records if record.status == PUBLISHED}),
+        "last_updated": max(
+            [record.published_at for record in records if record.published_at],
+            default=None,
+        ).isoformat()
+        if any(record.published_at for record in records)
+        else None,
+        "methodology_note": (
+            "Company OpenVals Score averages published Microsoft pilot evidence records after "
+            "confidence, coverage, transparency, reproducibility, source quality, reviewer approval, "
+            "and publisher release."
+        ),
+    }
+
+
 def trust_center_payload(records: list[AutonomousEvidenceRecord]) -> dict[str, object]:
     published = [record for record in records if record.status == PUBLISHED]
     approved = [record for record in records if record.status in {APPROVED, PUBLISHED}]
@@ -388,6 +475,19 @@ def phase_1_metric_definitions(db: Session) -> list[MetricDefinition]:
         select(MetricDefinition)
         .where(MetricDefinition.key.in_(["ai_revenue", "ai_spend", "roi"]))
         .order_by(MetricDefinition.key)
+    ).all()
+
+
+def microsoft_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
+    return company_evidence_records(db, MICROSOFT_PILOT_COMPANY_SLUG)
+
+
+def company_evidence_records(db: Session, company_slug: str) -> list[AutonomousEvidenceRecord]:
+    return db.scalars(
+        select(AutonomousEvidenceRecord)
+        .join(Company)
+        .where(Company.slug == company_slug)
+        .order_by(AutonomousEvidenceRecord.updated_at.desc())
     ).all()
 
 
