@@ -25,6 +25,7 @@ This repository includes the Version 1 APIP foundation:
 - Real data beta source registry, credibility engine, evidence coverage scoring, and ingestion connectors
 - Company validation framework with evidence tracking, source review, reviewer notes, and OpenVals Validation Score
 - Research operations framework with queue, assignments, evidence workflow, audit trail, and progress metrics
+- Microsoft gold standard validation report at `/companies/microsoft/validation-report`
 - Login-protected admin portal for catalog management, source review, audit logs, and seed import
 - Public API key access with Free, Pro, and Enterprise daily limit tiers
 - OpenVals-branded public launch pages for methodology, about, disclaimer, and developer access
@@ -67,6 +68,7 @@ Recommended Mac local development flow:
 - Real data guide: [docs/REAL_DATA_GUIDE.md](docs/REAL_DATA_GUIDE.md)
 - Real data beta architecture: [docs/REAL_DATA_ARCHITECTURE.md](docs/REAL_DATA_ARCHITECTURE.md)
 - Company validation playbook: [docs/COMPANY_VALIDATION_PLAYBOOK.md](docs/COMPANY_VALIDATION_PLAYBOOK.md)
+- Microsoft validation template: [docs/MICROSOFT_VALIDATION_TEMPLATE.md](docs/MICROSOFT_VALIDATION_TEMPLATE.md)
 - Research operating model: [docs/RESEARCH_OPERATING_MODEL.md](docs/RESEARCH_OPERATING_MODEL.md)
 - ETL workflow: [docs/etl-source-management.md](docs/etl-source-management.md)
 - AI Reality Index: [docs/ai-reality-index.md](docs/ai-reality-index.md)

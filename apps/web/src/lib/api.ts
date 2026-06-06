@@ -1,5 +1,13 @@
 import { fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
-import type { CollectionResponse, Entity, EntityType, MetricValue, RealityIndexItem, Scoreboard } from "@/types/api";
+import type {
+  CollectionResponse,
+  Entity,
+  EntityType,
+  MetricValue,
+  MicrosoftValidationReport,
+  RealityIndexItem,
+  Scoreboard
+} from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
 const PUBLIC_API_KEY = process.env.APIP_PUBLIC_API_KEY ?? process.env.WEB_PUBLIC_API_KEY;
@@ -80,5 +88,26 @@ export function fetchMetrics() {
   return apiFetch<CollectionResponse<MetricValue>>("metrics/search", {
     items: fallbackMetrics,
     next_cursor: null
+  });
+}
+
+export function fetchMicrosoftValidationReport() {
+  return apiFetch<MicrosoftValidationReport>("companies/microsoft/validation-report", {
+    id: "microsoft-validation-fallback",
+    company: "Microsoft",
+    company_slug: "microsoft",
+    status: "under_review",
+    report_path: "/companies/microsoft/validation-report",
+    methodology_version: "gold-standard-v1",
+    methodology_trace:
+      "Gold Standard v1 validates Microsoft through required evidence sections, source approval, lineage, reviewer notes, and methodology traceability.",
+    reviewer_notes: "Configure the backend API to load the live Microsoft validation workspace.",
+    evidence_coverage_score: 0,
+    openvals_validation_score: 0,
+    openvals_validation_label: "Insufficient Evidence",
+    exported_at: null,
+    last_updated: null,
+    sections: [],
+    source_lineage: []
   });
 }

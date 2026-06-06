@@ -22,6 +22,10 @@ from app.db.models import (
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
+from app.domains.microsoft_validation.service import (
+    ensure_microsoft_validation_workspace,
+    write_workspace_audit_log,
+)
 from app.domains.research.service import (
     collect_research_evidence,
     ensure_research_queue_item,
@@ -365,6 +369,19 @@ def seed_database(db: Session) -> None:
             beta_sources(company_slug),
             admin.id,
         )
+
+    microsoft_workspace = ensure_microsoft_validation_workspace(db, admin.id)
+    write_workspace_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="microsoft_validation.workspace_seeded",
+        workspace=microsoft_workspace,
+        metadata={
+            "company": "Microsoft",
+            "report_path": microsoft_workspace.report_path,
+            "methodology_version": microsoft_workspace.methodology_version,
+        },
+    )
 
     us_sources = [
         source_map["stanford-ai-index"],

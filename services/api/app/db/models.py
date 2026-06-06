@@ -221,6 +221,86 @@ class CompanyValidationSourceReview(TimestampMixin, Base):
     reviewed_by: Mapped[User | None] = relationship()
 
 
+class CompanyValidationWorkspace(TimestampMixin, Base):
+    __tablename__ = "company_validation_workspaces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), unique=True, index=True)
+    validation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("company_validations.id"), nullable=True, index=True
+    )
+    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
+    methodology_version: Mapped[str] = mapped_column(String(80), default="gold-standard-v1")
+    evidence_coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    openvals_validation_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    methodology_trace: Mapped[str] = mapped_column(Text)
+    report_path: Mapped[str] = mapped_column(String(500))
+    exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    company: Mapped[Company] = relationship()
+    validation: Mapped[CompanyValidation | None] = relationship()
+    sections: Mapped[list["CompanyValidationWorkspaceSection"]] = relationship(
+        back_populates="workspace"
+    )
+
+
+class CompanyValidationWorkspaceSection(TimestampMixin, Base):
+    __tablename__ = "company_validation_workspace_sections"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "section_key", name="uq_workspace_section_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("company_validation_workspaces.id"), index=True
+    )
+    section_key: Mapped[str] = mapped_column(String(120), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text)
+    required_source_types: Mapped[str] = mapped_column(Text)
+    coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    openvals_validation_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    methodology_trace: Mapped[str] = mapped_column(Text)
+    lineage_json: Mapped[str] = mapped_column(Text)
+    source_approval_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+
+    workspace: Mapped[CompanyValidationWorkspace] = relationship(back_populates="sections")
+    evidence_links: Mapped[list["CompanyValidationWorkspaceEvidence"]] = relationship(
+        back_populates="section"
+    )
+
+
+class CompanyValidationWorkspaceEvidence(TimestampMixin, Base):
+    __tablename__ = "company_validation_workspace_evidence"
+    __table_args__ = (
+        UniqueConstraint("section_id", "source_id", name="uq_workspace_section_source"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    section_id: Mapped[str] = mapped_column(
+        ForeignKey("company_validation_workspace_sections.id"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    evidence_role: Mapped[str] = mapped_column(String(120), index=True)
+    approval_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    methodology_trace: Mapped[str] = mapped_column(Text)
+    lineage_snapshot_json: Mapped[str] = mapped_column(Text)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    section: Mapped[CompanyValidationWorkspaceSection] = relationship(
+        back_populates="evidence_links"
+    )
+    source: Mapped[Source] = relationship()
+    reviewed_by: Mapped[User | None] = relationship()
+
+
 class ResearchQueueItem(TimestampMixin, Base):
     __tablename__ = "research_queue_items"
 

@@ -104,3 +104,60 @@ export type CollectionResponse<T = Entity> = {
   items: T[];
   next_cursor: string | null;
 };
+
+export type MicrosoftValidationSource = {
+  id: string;
+  title: string;
+  source_type: string;
+  source_tier: number;
+  credibility_score: number;
+  publisher?: string | null;
+  url?: string | null;
+  published_at?: string | null;
+  reliability_score: number;
+  status: string;
+};
+
+export type MicrosoftValidationEvidence = {
+  id: string;
+  evidence_role: string;
+  approval_status: string;
+  reviewer_notes?: string | null;
+  methodology_trace: string;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  source: MicrosoftValidationSource;
+};
+
+export type MicrosoftValidationSection = {
+  id: string;
+  section_key: string;
+  title: string;
+  description: string;
+  required_source_types: string[];
+  coverage_score: number;
+  openvals_validation_score: number;
+  reviewer_notes?: string | null;
+  source_approval_status: string;
+  methodology_trace: string;
+  lineage: Record<string, string | number | null>[];
+  evidence: MicrosoftValidationEvidence[];
+};
+
+export type MicrosoftValidationReport = {
+  id: string;
+  company: string;
+  company_slug: string;
+  status: string;
+  report_path: string;
+  methodology_version: string;
+  methodology_trace: string;
+  reviewer_notes?: string | null;
+  evidence_coverage_score: number;
+  openvals_validation_score: number;
+  openvals_validation_label: string;
+  exported_at?: string | null;
+  last_updated?: string | null;
+  sections: MicrosoftValidationSection[];
+  source_lineage: Record<string, string | number | null>[];
+};

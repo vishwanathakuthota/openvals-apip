@@ -165,6 +165,78 @@ def test_company_validation_dashboard_returns_seeded_beta_companies():
     assert nvidia["source_reviews"]
 
 
+def test_microsoft_gold_standard_validation_report_returns_required_sections():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/companies/microsoft/validation-report", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company"] == "Microsoft"
+    assert payload["report_path"] == "/companies/microsoft/validation-report"
+    assert payload["methodology_version"] == "gold-standard-v1"
+    assert payload["evidence_coverage_score"] == 100.0
+    assert payload["openvals_validation_score"] > 0
+    assert payload["openvals_validation_label"]
+    assert "methodology" in payload["methodology_trace"].lower()
+    assert {section["title"] for section in payload["sections"]} == {
+        "Revenue Evidence",
+        "AI Revenue Evidence",
+        "AI Investment Evidence",
+        "Infrastructure Investment Evidence",
+        "Earnings Call Evidence",
+        "Investor Presentation Evidence",
+    }
+    for section in payload["sections"]:
+        assert section["coverage_score"] == 100.0
+        assert section["source_approval_status"] == "approved"
+        assert section["reviewer_notes"]
+        assert section["methodology_trace"]
+        assert section["lineage"]
+        assert section["evidence"]
+        assert all(item["approval_status"] == "approved" for item in section["evidence"])
+    assert payload["source_lineage"]
+
+
+def test_admin_microsoft_validation_source_review_and_export_workflow():
+    client = build_client()
+    headers = auth_headers(client)
+
+    workspace = client.get("/api/v1/admin/microsoft-validation", headers=headers)
+
+    assert workspace.status_code == 200
+    report = workspace.json()
+    evidence_id = report["sections"][0]["evidence"][0]["id"]
+
+    review = client.patch(
+        f"/api/v1/admin/microsoft-validation/evidence/{evidence_id}/review",
+        headers=headers,
+        json={
+            "approval_status": "verified",
+            "reviewer_notes": "Verified against Microsoft investor source lineage.",
+        },
+    )
+
+    assert review.status_code == 200
+    reviewed = review.json()
+    reviewed_evidence = reviewed["sections"][0]["evidence"][0]
+    assert reviewed_evidence["approval_status"] == "verified"
+    assert reviewed_evidence["reviewer_notes"] == "Verified against Microsoft investor source lineage."
+
+    exported = client.post("/api/v1/admin/microsoft-validation/export", headers=headers)
+
+    assert exported.status_code == 200
+    exported_payload = exported.json()
+    assert exported_payload["exported_at"]
+    assert exported_payload["report_path"] == "/companies/microsoft/validation-report"
+
+    audit = client.get("/api/v1/admin/audit-logs", headers=headers)
+    actions = {item["action"] for item in audit.json()["items"]}
+    assert "microsoft_validation.source_reviewed" in actions
+    assert "microsoft_validation.report_exported" in actions
+
+
 def test_research_operations_dashboard_returns_queue_and_progress_metrics():
     client = build_client()
     headers = api_key_headers(client)
