@@ -374,6 +374,69 @@ Stores immutable research operations audit events.
 | metadata_json | text | Structured audit metadata |
 | created_at | timestamptz | Required |
 
+## Microsoft Gold Standard Validation
+
+### company_validation_workspaces
+
+Stores the durable Microsoft validation workspace and future company-level validation workspaces.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| company_id | uuid | Unique FK to `companies.id` |
+| validation_id | uuid | FK to `company_validations.id`, nullable |
+| slug | text | Unique workspace slug, `microsoft` for V1 |
+| status | text | Workflow status |
+| methodology_version | text | Example `gold-standard-v1` |
+| evidence_coverage_score | numeric(5,2) | Average section coverage |
+| openvals_validation_score | numeric(5,2) | Average section validation score |
+| reviewer_notes | text | Workspace reviewer notes |
+| methodology_trace | text | Workspace-level methodology trace |
+| report_path | text | Public report route |
+| exported_at | timestamptz | Last report export timestamp |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### company_validation_workspace_sections
+
+Stores required evidence sections for a workspace.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| workspace_id | uuid | FK to `company_validation_workspaces.id` |
+| section_key | text | Unique per workspace |
+| title | text | Human-readable section name |
+| description | text | Section purpose |
+| required_source_types | text | JSON array of required source types |
+| coverage_score | numeric(5,2) | Approved required source type coverage |
+| openvals_validation_score | numeric(5,2) | Section validation score |
+| reviewer_notes | text | Section reviewer notes |
+| methodology_trace | text | Section methodology trace |
+| lineage_json | text | Section-level source lineage snapshots |
+| source_approval_status | text | `pending`, `partial`, or `approved` |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
+### company_validation_workspace_evidence
+
+Links workspace sections to approved, verified, rejected, or pending source evidence.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| section_id | uuid | FK to `company_validation_workspace_sections.id` |
+| source_id | uuid | FK to `sources.id` |
+| evidence_role | text | Section key or evidence role |
+| approval_status | text | `pending`, `approved`, `verified`, or `rejected` |
+| reviewer_notes | text | Source-level reviewer notes |
+| methodology_trace | text | Source-specific methodology trace |
+| lineage_snapshot_json | text | Source lineage snapshot captured at attachment time |
+| reviewed_by_user_id | uuid | FK to `users.id`, nullable |
+| reviewed_at | timestamptz | Nullable |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
+
 ### confidence_scores
 
 | Column | Type | Notes |

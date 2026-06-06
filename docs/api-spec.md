@@ -623,6 +623,91 @@ Response:
 
 Runs the idempotent seed import and writes an audit event.
 
+## Microsoft Gold Standard Validation
+
+### GET /api/v1/companies/microsoft/validation-report
+
+Returns the public Microsoft validation report export. Requires public API key access.
+
+Response includes:
+
+- Evidence Coverage Score
+- OpenVals Validation Score
+- Reviewer notes
+- Source approval status
+- Source lineage snapshots
+- Methodology traceability
+- Six evidence sections:
+  - Revenue Evidence
+  - AI Revenue Evidence
+  - AI Investment Evidence
+  - Infrastructure Investment Evidence
+  - Earnings Call Evidence
+  - Investor Presentation Evidence
+
+Example:
+
+```json
+{
+  "company": "Microsoft",
+  "status": "under_review",
+  "report_path": "/companies/microsoft/validation-report",
+  "methodology_version": "gold-standard-v1",
+  "evidence_coverage_score": 100.0,
+  "openvals_validation_score": 92.4,
+  "openvals_validation_label": "Validated",
+  "sections": [
+    {
+      "title": "Revenue Evidence",
+      "required_source_types": ["sec_filing", "annual_report"],
+      "coverage_score": 100.0,
+      "source_approval_status": "approved",
+      "evidence": [
+        {
+          "approval_status": "approved",
+          "source": {
+            "title": "Microsoft 2025 Annual Report",
+            "source_type": "annual_report",
+            "source_tier": 1,
+            "credibility_score": 93
+          }
+        }
+      ]
+    }
+  ],
+  "source_lineage": []
+}
+```
+
+### GET /api/v1/company-validation-workspaces/microsoft
+
+Returns the same Microsoft validation workspace report payload for API clients that address validation workspaces directly.
+
+### GET /api/v1/admin/microsoft-validation
+
+Returns the admin Microsoft validation workspace payload.
+
+### POST /api/v1/admin/microsoft-validation/workspace
+
+Creates or refreshes the Microsoft validation workspace, attaches required evidence sections, recalculates scores, and writes an audit log.
+
+### PATCH /api/v1/admin/microsoft-validation/evidence/{evidence_id}/review
+
+Approves, verifies, or rejects a Microsoft workspace evidence source.
+
+Request:
+
+```json
+{
+  "approval_status": "verified",
+  "reviewer_notes": "Transcript verified against Microsoft Investor Relations."
+}
+```
+
+### POST /api/v1/admin/microsoft-validation/export
+
+Refreshes the Microsoft validation report export, updates `exported_at`, writes an audit log, and returns the report payload.
+
 ### GET /api/v1/admin/users
 
 Lists admin/analyst users.

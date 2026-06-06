@@ -11,6 +11,7 @@ from app.api.routes import (
     industries,
     metrics,
     models,
+    microsoft_validation,
     roi_calculator,
     scoreboard,
     research,
@@ -51,6 +52,11 @@ def create_app() -> FastAPI:
     app.include_router(research.router, prefix="/api/v1", tags=["research-operations"])
     app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
     app.include_router(validations.router, prefix="/api/v1", tags=["company-validations"])
+    app.include_router(
+        microsoft_validation.router,
+        prefix="/api/v1",
+        tags=["microsoft-validation"],
+    )
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
     return app
 

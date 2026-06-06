@@ -14,6 +14,8 @@ from app.db.models import (
     CompanyValidation,
     CompanyValidationEvidence,
     CompanyValidationSourceReview,
+    CompanyValidationWorkspace,
+    CompanyValidationWorkspaceEvidence,
     ConfidenceScore,
     Country,
     DataLineage,
@@ -40,6 +42,12 @@ from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entit
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 from app.domains.ingestion.connectors import ManualResearchConnector
+from app.domains.microsoft_validation.service import (
+    ensure_microsoft_validation_workspace,
+    microsoft_validation_report_payload,
+    review_workspace_source,
+    write_workspace_audit_log,
+)
 from app.domains.research.service import (
     assign_research,
     collect_research_evidence,
@@ -83,6 +91,9 @@ def admin_dashboard(
             "api_keys": len(db.scalars(select(ApiKey)).all()),
             "data_lineage": len(db.scalars(select(DataLineage)).all()),
             "company_validations": len(db.scalars(select(CompanyValidation)).all()),
+            "validation_workspaces": len(
+                db.scalars(select(CompanyValidationWorkspace)).all()
+            ),
             "research_queue": len(db.scalars(select(ResearchQueueItem)).all()),
         }
     }
@@ -762,6 +773,93 @@ def admin_reject_company_validation(
     )
     db.commit()
     return company_validation_payload(validation)
+
+
+@router.get("/microsoft-validation")
+def admin_get_microsoft_validation_workspace(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    workspace = db.scalar(
+        select(CompanyValidationWorkspace).where(CompanyValidationWorkspace.slug == "microsoft")
+    )
+    if not workspace:
+        workspace = ensure_microsoft_validation_workspace(db)
+        db.commit()
+    return microsoft_validation_report_payload(workspace)
+
+
+@router.post("/microsoft-validation/workspace")
+def admin_create_microsoft_validation_workspace(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    workspace = ensure_microsoft_validation_workspace(db, claims["sub"])
+    write_workspace_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="microsoft_validation.workspace_created",
+        workspace=workspace,
+        metadata={"report_path": workspace.report_path},
+    )
+    db.commit()
+    return microsoft_validation_report_payload(workspace)
+
+
+@router.patch("/microsoft-validation/evidence/{evidence_id}/review")
+def admin_review_microsoft_validation_evidence(
+    evidence_id: str,
+    payload: dict[str, object],
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    evidence = get_or_404(
+        db,
+        CompanyValidationWorkspaceEvidence,
+        evidence_id,
+        "microsoft_validation_evidence_not_found",
+    )
+    review_workspace_source(
+        evidence,
+        approval_status=required_text(payload, "approval_status"),
+        reviewer_notes=optional_text(payload.get("reviewer_notes")),
+        reviewer_user_id=claims["sub"],
+    )
+    write_workspace_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="microsoft_validation.source_reviewed",
+        workspace=evidence.section.workspace,
+        metadata={
+            "evidence_id": evidence.id,
+            "section_key": evidence.section.section_key,
+            "source_id": evidence.source_id,
+            "approval_status": evidence.approval_status,
+        },
+    )
+    db.commit()
+    return microsoft_validation_report_payload(evidence.section.workspace)
+
+
+@router.post("/microsoft-validation/export")
+def admin_export_microsoft_validation_report(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    workspace = ensure_microsoft_validation_workspace(db, claims["sub"])
+    workspace.exported_at = datetime.now(UTC)
+    write_workspace_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="microsoft_validation.report_exported",
+        workspace=workspace,
+        metadata={
+            "report_path": workspace.report_path,
+            "openvals_validation_score": float(workspace.openvals_validation_score),
+        },
+    )
+    db.commit()
+    return microsoft_validation_report_payload(workspace)
 
 
 @router.get("/research-queue")
