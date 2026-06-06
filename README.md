@@ -27,6 +27,7 @@ This repository includes the Version 1 APIP foundation:
 - Research operations framework with queue, assignments, evidence workflow, audit trail, and progress metrics
 - Microsoft gold standard validation report at `/companies/microsoft/validation-report`
 - Autonomous Research Operations V1 with Trust Center, evidence classification, OpenVals Score, and approval-gated publishing
+- Microsoft end-to-end validation pilot with evidence timeline, source lineage, OpenVals score, and trust report
 - Login-protected admin portal for catalog management, source review, audit logs, and seed import
 - Public API key access with Free, Pro, and Enterprise daily limit tiers
 - OpenVals-branded public launch pages for methodology, about, disclaimer, and developer access
@@ -70,6 +71,7 @@ Recommended Mac local development flow:
 - Real data beta architecture: [docs/REAL_DATA_ARCHITECTURE.md](docs/REAL_DATA_ARCHITECTURE.md)
 - Company validation playbook: [docs/COMPANY_VALIDATION_PLAYBOOK.md](docs/COMPANY_VALIDATION_PLAYBOOK.md)
 - Microsoft validation template: [docs/MICROSOFT_VALIDATION_TEMPLATE.md](docs/MICROSOFT_VALIDATION_TEMPLATE.md)
+- Microsoft case study: [docs/MICROSOFT_CASE_STUDY.md](docs/MICROSOFT_CASE_STUDY.md)
 - Autonomous research operations: [docs/AUTONOMOUS_RESEARCH_OPERATIONS.md](docs/AUTONOMOUS_RESEARCH_OPERATIONS.md)
 - Evidence classification: [docs/EVIDENCE_CLASSIFICATION.md](docs/EVIDENCE_CLASSIFICATION.md)
 - OpenVals Score: [docs/OPENVALS_SCORE.md](docs/OPENVALS_SCORE.md)

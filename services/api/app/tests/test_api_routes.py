@@ -250,16 +250,42 @@ def test_autonomous_research_trust_center_queues_phase_one_evidence_without_auto
     companies = {item["company"] for item in payload["items"]}
     assert companies >= {"Microsoft", "NVIDIA", "Google"}
     assert payload["metrics"]["total_records"] >= 9
-    assert payload["metrics"]["under_review_records"] >= 9
-    assert payload["metrics"]["published_records"] == 0
-    first = payload["items"][0]
-    assert first["status"] == "Under Review"
-    assert first["evidence_classification"] in {"Reported", "Estimated", "Derived", "Validated"}
-    assert first["confidence_score"] >= 0
-    assert first["evidence_coverage_score"] >= 0
-    assert first["openvals_score"] >= 0
-    assert first["approval_recommendation"] in {"Auto Approve", "Manual Review", "Reject"}
-    assert first["lineage"]["source_url"].startswith("https://")
+    assert payload["metrics"]["under_review_records"] >= 6
+    assert payload["metrics"]["published_records"] >= 3
+    microsoft_records = [item for item in payload["items"] if item["company"] == "Microsoft"]
+    assert microsoft_records
+    assert {item["status"] for item in microsoft_records} == {"Published"}
+    assert {item["evidence_classification"] for item in microsoft_records} == {"Validated"}
+    for item in microsoft_records:
+        assert item["confidence_score"] >= 0
+        assert item["evidence_coverage_score"] >= 0
+        assert item["openvals_score"] >= 0
+        assert item["reviewer"] == "APIP Admin"
+        assert item["approved_at"]
+        assert item["published_at"]
+        assert item["lineage"]["source_url"].startswith("https://")
+
+
+def test_microsoft_pilot_artifact_endpoints_are_generated():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    timeline = client.get("/api/v1/companies/microsoft/evidence-timeline", headers=headers)
+    lineage = client.get("/api/v1/companies/microsoft/source-lineage", headers=headers)
+    score = client.get("/api/v1/companies/microsoft/openvals-score", headers=headers)
+    trust = client.get("/api/v1/companies/microsoft/trust-report", headers=headers)
+
+    assert timeline.status_code == 200
+    assert lineage.status_code == 200
+    assert score.status_code == 200
+    assert trust.status_code == 200
+    assert timeline.json()["items"]
+    assert lineage.json()["items"]
+    assert score.json()["company"] == "Microsoft"
+    assert score.json()["openvals_score"] > 0
+    assert score.json()["published_records"] >= 3
+    assert trust.json()["status"] == "fully_validated"
+    assert trust.json()["metrics"]["published_records"] >= 3
 
 
 def test_admin_autonomous_review_and_publisher_flow_updates_public_lineage():
@@ -667,7 +693,9 @@ def test_admin_csv_import_review_approval_and_audit_flow():
 
     review = client.get("/api/v1/admin/source-metrics", headers=headers)
     assert review.status_code == 200
-    reviewed_metric = review.json()["items"][0]
+    reviewed_metric = next(
+        item for item in review.json()["items"] if item["company"] == "OpenAI" and item["metric_type"] == "ai_cash_flow"
+    )
     assert reviewed_metric["value"] == 123456789
     assert reviewed_metric["source_url"] == "https://example.com/openai-2025-cash-flow"
     assert reviewed_metric["source_type"] == "annual_report"

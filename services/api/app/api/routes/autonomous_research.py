@@ -11,11 +11,15 @@ from app.domains.autonomous_research.service import (
     REJECTED,
     UNDER_REVIEW,
     approve_evidence_record,
+    company_openvals_score_payload,
+    company_pilot_payload,
     evidence_record_payload,
+    microsoft_evidence_records,
     reject_evidence_record,
     request_additional_evidence,
     run_approval_agent,
     run_publisher_agent,
+    run_microsoft_pilot_validation,
     run_research_agent,
     run_validation_agent,
     trust_center_payload,
@@ -66,6 +70,44 @@ def public_source_lineage(
         "items": [evidence_record_payload(record)["lineage"] for record in records],
         "next_cursor": None,
     }
+
+
+@router.get("/companies/microsoft/evidence-timeline")
+def microsoft_evidence_timeline(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = microsoft_evidence_records(db)
+    return {"items": [evidence_record_payload(record) for record in records], "next_cursor": None}
+
+
+@router.get("/companies/microsoft/source-lineage")
+def microsoft_source_lineage(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = [record for record in microsoft_evidence_records(db) if record.status == PUBLISHED]
+    return {
+        "company": "Microsoft",
+        "items": [evidence_record_payload(record)["lineage"] for record in records],
+        "next_cursor": None,
+    }
+
+
+@router.get("/companies/microsoft/openvals-score")
+def microsoft_openvals_score(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_openvals_score_payload(db, "microsoft")
+
+
+@router.get("/companies/microsoft/trust-report")
+def microsoft_trust_report(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_pilot_payload(db, "microsoft")
 
 
 @router.get("/research-queue")
@@ -169,6 +211,16 @@ def admin_run_autonomous_agent(
         )
     db.commit()
     return result.__dict__
+
+
+@router.post("/admin/microsoft-pilot-validation/run")
+def admin_run_microsoft_pilot_validation(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    result = run_microsoft_pilot_validation(db, reviewer_user_id=claims["sub"])
+    db.commit()
+    return result
 
 
 @router.patch("/admin/autonomous-research/evidence/{record_id}/review")

@@ -235,3 +235,16 @@ export type TrustCenter = {
   };
   items: AutonomousEvidenceRecord[];
 };
+
+export type CompanyOpenValsScore = {
+  company: string;
+  company_slug: string;
+  openvals_score: number;
+  classification: string;
+  published_records: number;
+  evidence_coverage_score: number;
+  confidence_score: number;
+  source_count: number;
+  last_updated?: string | null;
+  methodology_note: string;
+};

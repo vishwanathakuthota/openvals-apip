@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,26 @@ export default async function MicrosoftValidationReportPage() {
             </CardHeader>
           </Card>
         ))}
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Pilot Artifacts</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["/companies/microsoft/evidence-timeline", "Evidence Timeline"],
+            ["/companies/microsoft/source-lineage", "Source Lineage"],
+            ["/companies/microsoft/openvals-score", "OpenVals Score"],
+            ["/companies/microsoft/trust-report", "Trust Report"]
+          ].map(([href, label]) => (
+            <Link
+              className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+              href={href}
+              key={href}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
