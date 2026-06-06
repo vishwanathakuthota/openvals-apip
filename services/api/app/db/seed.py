@@ -21,6 +21,11 @@ from app.db.models import (
 )
 from app.db.session import SessionLocal
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
+from app.domains.autonomous_research.service import (
+    run_approval_agent,
+    run_research_agent,
+    run_validation_agent,
+)
 from app.domains.identity.api_keys import hash_api_key
 from app.domains.microsoft_validation.service import (
     ensure_microsoft_validation_workspace,
@@ -473,6 +478,9 @@ def seed_database(db: Session) -> None:
         None,
         beta_sources("openai"),
     )
+    run_research_agent(db)
+    run_validation_agent(db)
+    run_approval_agent(db)
 
     db.add(admin)
     db.commit()

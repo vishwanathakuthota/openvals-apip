@@ -7,6 +7,7 @@ from app.domains.confidence.service import (
     source_reliability_score,
 )
 from app.domains.indexes.service import calculate_ai_reality_index
+from app.domains.autonomous_research.service import openvals_classification
 from app.domains.sources.credibility import coverage_label, source_credibility_score, source_tier
 
 
@@ -54,6 +55,12 @@ def test_ai_reality_index_formula_matches_prd_weights():
     assert result["score"] == 70
     assert result["label"] == "Strong"
     assert result["classification"] == "Strong"
+
+
+def test_openvals_score_formula_matches_trust_model_weights():
+    score = round((90 * 0.30) + (80 * 0.25) + (70 * 0.20) + (60 * 0.15) + (50 * 0.10), 2)
+    assert score == 75
+    assert openvals_classification(score) == "Reliable"
 
 
 def test_ai_reality_index_classification_bands_match_prd():

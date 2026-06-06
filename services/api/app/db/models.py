@@ -422,10 +422,63 @@ class MetricValue(TimestampMixin, Base):
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     methodology: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
+    evidence_classification: Mapped[str] = mapped_column(String(40), default="Derived", index=True)
+    validation_status: Mapped[str] = mapped_column(String(40), default="Published", index=True)
+    evidence_coverage_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    openvals_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
 
     metric_definition: Mapped[MetricDefinition] = relationship()
     confidence_score: Mapped["ConfidenceScore"] = relationship(back_populates="metric_value")
     source_links: Mapped[list["MetricSource"]] = relationship(back_populates="metric_value")
+    autonomous_evidence_records: Mapped[list["AutonomousEvidenceRecord"]] = relationship(
+        back_populates="metric_value"
+    )
+
+
+class AutonomousEvidenceRecord(TimestampMixin, Base):
+    __tablename__ = "autonomous_evidence_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    metric_definition_id: Mapped[str] = mapped_column(ForeignKey("metric_definitions.id"), index=True)
+    metric_value_id: Mapped[str | None] = mapped_column(
+        ForeignKey("metric_values.id"), nullable=True, index=True
+    )
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), index=True)
+    previous_value: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    discovered_value: Mapped[float] = mapped_column(Numeric(20, 6))
+    source_url: Mapped[str] = mapped_column(String(1000))
+    source_type: Mapped[str] = mapped_column(String(120), index=True)
+    evidence_text: Mapped[str] = mapped_column(Text)
+    collection_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    collection_method: Mapped[str] = mapped_column(String(120), default="approved_source_registry")
+    status: Mapped[str] = mapped_column(String(40), default="Collected", index=True)
+    evidence_classification: Mapped[str] = mapped_column(String(40), default="Reported", index=True)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    confidence_label: Mapped[str] = mapped_column(String(80), default="Speculative")
+    evidence_coverage_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    validation_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    openvals_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    transparency_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    reproducibility_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    source_quality_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    validation_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    validation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation_status: Mapped[str] = mapped_column(String(40), default="Collected", index=True)
+    approval_recommendation: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    reviewer_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewer_decision: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+
+    company: Mapped[Company] = relationship()
+    metric_definition: Mapped[MetricDefinition] = relationship()
+    metric_value: Mapped[MetricValue | None] = relationship(back_populates="autonomous_evidence_records")
+    source: Mapped[Source] = relationship()
+    reviewer: Mapped[User | None] = relationship()
 
 
 class MetricSource(TimestampMixin, Base):

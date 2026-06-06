@@ -20,6 +20,10 @@ export type MetricValue = {
   confidence_label?: string | null;
   source_count?: number;
   coverage_score?: number;
+  evidence_classification?: string;
+  validation_status?: string;
+  openvals_score?: number | null;
+  openvals_classification?: string;
   coverage_label?: string;
   coverage?: {
     score: number;
@@ -37,6 +41,7 @@ export type MetricValue = {
   methodology?: string;
   confidence: Confidence | null;
   sources?: SourceTransparency[];
+  source_lineage?: SourceLineage[];
 };
 
 export type SourceTransparency = {
@@ -50,6 +55,20 @@ export type SourceTransparency = {
   published_at?: string | null;
   reliability_score: number;
   evidence_note?: string | null;
+  lineage?: SourceLineage | null;
+};
+
+export type SourceLineage = {
+  source_url: string;
+  source_type: string;
+  collection_date: string;
+  confidence: number;
+  evidence_coverage: number;
+  reviewer?: string | null;
+  approval_date?: string | null;
+  validation_status: string;
+  evidence_classification: string;
+  openvals_score: number;
 };
 
 export type EntityType = "company" | "industry" | "country" | "model" | "global";
@@ -160,4 +179,59 @@ export type MicrosoftValidationReport = {
   last_updated?: string | null;
   sections: MicrosoftValidationSection[];
   source_lineage: Record<string, string | number | null>[];
+};
+
+export type AutonomousEvidenceRecord = {
+  id: string;
+  company: string;
+  company_id: string;
+  metric: string;
+  metric_name: string;
+  previous_value: number | null;
+  discovered_value: number;
+  source_url: string;
+  source_type: string;
+  source_title: string;
+  evidence_text: string;
+  collection_timestamp: string;
+  collection_method: string;
+  status: string;
+  evidence_classification: string;
+  confidence_score: number;
+  confidence_label: string;
+  evidence_coverage_score: number;
+  validation_score: number;
+  openvals_score: number;
+  openvals_classification: string;
+  transparency_score: number;
+  reproducibility_score: number;
+  source_quality_score: number;
+  validation_timestamp?: string | null;
+  validation_notes?: string | null;
+  validation_status: string;
+  approval_recommendation?: string | null;
+  reviewer?: string | null;
+  reviewed_at?: string | null;
+  reviewer_decision?: string | null;
+  reviewer_notes?: string | null;
+  approved_at?: string | null;
+  published_at?: string | null;
+  version_number: number;
+  lineage: SourceLineage;
+};
+
+export type TrustCenter = {
+  workflow: string;
+  auto_publish_enabled: boolean;
+  metrics: {
+    total_records: number;
+    published_records: number;
+    approved_records: number;
+    under_review_records: number;
+    manual_review_required: number;
+    average_confidence: number;
+    average_openvals_score: number;
+    public_lineage_records: number;
+  };
+  items: AutonomousEvidenceRecord[];
 };

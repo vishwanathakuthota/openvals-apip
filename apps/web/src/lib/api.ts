@@ -6,7 +6,8 @@ import type {
   MetricValue,
   MicrosoftValidationReport,
   RealityIndexItem,
-  Scoreboard
+  Scoreboard,
+  TrustCenter
 } from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
@@ -109,5 +110,23 @@ export function fetchMicrosoftValidationReport() {
     last_updated: null,
     sections: [],
     source_lineage: []
+  });
+}
+
+export function fetchTrustCenter() {
+  return apiFetch<TrustCenter>("trust-center", {
+    workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+    auto_publish_enabled: false,
+    metrics: {
+      total_records: 0,
+      published_records: 0,
+      approved_records: 0,
+      under_review_records: 0,
+      manual_review_required: 0,
+      average_confidence: 0,
+      average_openvals_score: 0,
+      public_lineage_records: 0
+    },
+    items: []
   });
 }

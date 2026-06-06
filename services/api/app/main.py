@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     admin,
     auth,
+    autonomous_research,
     companies,
     confidence,
     countries,
@@ -56,6 +57,11 @@ def create_app() -> FastAPI:
         microsoft_validation.router,
         prefix="/api/v1",
         tags=["microsoft-validation"],
+    )
+    app.include_router(
+        autonomous_research.router,
+        prefix="/api/v1",
+        tags=["autonomous-research-operations"],
     )
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
     return app

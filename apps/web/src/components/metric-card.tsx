@@ -7,12 +7,16 @@ export function MetricCard({
   label,
   value,
   unit,
-  confidence
+  confidence,
+  classification,
+  validationStatus
 }: {
   label: string;
   value: number;
   unit: string;
   confidence: Confidence;
+  classification?: string;
+  validationStatus?: string;
 }) {
   return (
     <Card className="group relative">
@@ -27,6 +31,8 @@ export function MetricCard({
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <span>{confidence.source_count} sources</span>
           <span>{formatDate(confidence.last_updated)}</span>
+          <span>{classification ?? "Unclassified"}</span>
+          <span>{validationStatus ?? "n/a"}</span>
         </div>
       </CardContent>
       <div className="pointer-events-none absolute left-4 top-[calc(100%-8px)] z-30 hidden w-72 rounded-lg border border-border bg-card p-4 text-sm shadow-xl group-hover:grid">
@@ -36,6 +42,8 @@ export function MetricCard({
           Confidence: {confidence.score.toFixed(1)} ({confidence.label})
         </span>
         <span className="text-muted-foreground">Sources: {confidence.source_count}</span>
+        <span className="text-muted-foreground">Classification: {classification ?? "Unclassified"}</span>
+        <span className="text-muted-foreground">Validation status: {validationStatus ?? "n/a"}</span>
         <span className="text-muted-foreground">Last updated: {formatDate(confidence.last_updated)}</span>
       </div>
     </Card>
