@@ -155,7 +155,9 @@ def recalculate_research_progress(item: ResearchQueueItem) -> None:
         * 5,
         15,
     )
-    item.progress_percent = min(100, max(base_progress, base_progress + evidence_bonus + approval_bonus))
+    item.progress_percent = min(
+        100, max(base_progress, base_progress + evidence_bonus + approval_bonus)
+    )
 
 
 def research_progress_metrics(items: list[ResearchQueueItem]) -> ResearchProgressMetrics:
@@ -166,7 +168,11 @@ def research_progress_metrics(items: list[ResearchQueueItem]) -> ResearchProgres
         status_counts[status_label(item.status)] += 1
         collected_evidence += len(item.evidence_items)
         approved_evidence += len(
-            [evidence for evidence in item.evidence_items if evidence.approval_status in APPROVED_EVIDENCE_STATUSES]
+            [
+                evidence
+                for evidence in item.evidence_items
+                if evidence.approval_status in APPROVED_EVIDENCE_STATUSES
+            ]
         )
     total = len(items)
     assigned = len([item for item in items if item.assigned_to_user_id])

@@ -24,7 +24,7 @@ from app.domains.confidence.service import (
     freshness_score,
     methodology_transparency_score,
 )
-from app.domains.sources.credibility import evidence_coverage_score, source_credibility_score
+from app.domains.sources.credibility import source_credibility_score
 
 PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
 MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
@@ -75,7 +75,9 @@ def run_research_agent(db: Session) -> AgentRunResult:
                 collection_timestamp=datetime.now(UTC),
                 collection_method="approved_source_registry",
                 status=COLLECTED,
-                evidence_classification=classification_for_source(metric_definition.key, source.source_type),
+                evidence_classification=classification_for_source(
+                    metric_definition.key, source.source_type
+                ),
                 validation_status=COLLECTED,
             )
             db.add(record)
@@ -360,7 +362,9 @@ def evidence_record_payload(record: AutonomousEvidenceRecord) -> dict[str, objec
         "company_id": record.company_id,
         "metric": record.metric_definition.key,
         "metric_name": record.metric_definition.name,
-        "previous_value": float(record.previous_value) if record.previous_value is not None else None,
+        "previous_value": float(record.previous_value)
+        if record.previous_value is not None
+        else None,
         "discovered_value": float(record.discovered_value),
         "source_url": record.source_url,
         "source_type": record.source_type,
@@ -379,7 +383,9 @@ def evidence_record_payload(record: AutonomousEvidenceRecord) -> dict[str, objec
         "transparency_score": float(record.transparency_score),
         "reproducibility_score": float(record.reproducibility_score),
         "source_quality_score": float(record.source_quality_score),
-        "validation_timestamp": record.validation_timestamp.isoformat() if record.validation_timestamp else None,
+        "validation_timestamp": record.validation_timestamp.isoformat()
+        if record.validation_timestamp
+        else None,
         "validation_notes": record.validation_notes,
         "validation_status": record.validation_status,
         "approval_recommendation": record.approval_recommendation,
@@ -400,7 +406,9 @@ def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
-        "status": "fully_validated" if records and all(record.status == PUBLISHED for record in records) else "in_progress",
+        "status": "fully_validated"
+        if records and all(record.status == PUBLISHED for record in records)
+        else "in_progress",
         "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
         "metrics": metrics,
         "items": [evidence_record_payload(record) for record in records],
@@ -409,7 +417,9 @@ def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
 
 def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, object]:
     records = company_evidence_records(db, company_slug)
-    score = average([float(record.openvals_score) for record in records if record.status == PUBLISHED])
+    score = average(
+        [float(record.openvals_score) for record in records if record.status == PUBLISHED]
+    )
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
@@ -417,7 +427,11 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
         "classification": openvals_classification(score),
         "published_records": len([record for record in records if record.status == PUBLISHED]),
         "evidence_coverage_score": average(
-            [float(record.evidence_coverage_score) for record in records if record.status == PUBLISHED]
+            [
+                float(record.evidence_coverage_score)
+                for record in records
+                if record.status == PUBLISHED
+            ]
         ),
         "confidence_score": average(
             [float(record.confidence_score) for record in records if record.status == PUBLISHED]
@@ -431,8 +445,8 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
         else None,
         "methodology_note": (
             "Company OpenVals Score averages published Microsoft pilot evidence records after "
-            "confidence, coverage, transparency, reproducibility, source quality, reviewer approval, "
-            "and publisher release."
+            "confidence, coverage, transparency, reproducibility, source quality, "
+            "reviewer approval, and publisher release."
         ),
     }
 
@@ -672,7 +686,9 @@ def ensure_publication_source_metric(
 
 
 def legacy_admin_user_id(db: Session) -> str:
-    user_id = db.scalar(select(AuditLog.actor_user_id).where(AuditLog.actor_user_id.isnot(None)).limit(1))
+    user_id = db.scalar(
+        select(AuditLog.actor_user_id).where(AuditLog.actor_user_id.isnot(None)).limit(1)
+    )
     if not user_id:
         raise ValueError("An admin user is required before publishing autonomous evidence.")
     return user_id

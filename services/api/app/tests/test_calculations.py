@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+from app.domains.autonomous_research.service import openvals_classification
 from app.domains.calculator.service import calculate_roi
 from app.domains.confidence.service import (
     calculate_confidence,
@@ -7,7 +8,6 @@ from app.domains.confidence.service import (
     source_reliability_score,
 )
 from app.domains.indexes.service import calculate_ai_reality_index
-from app.domains.autonomous_research.service import openvals_classification
 from app.domains.sources.credibility import coverage_label, source_credibility_score, source_tier
 
 

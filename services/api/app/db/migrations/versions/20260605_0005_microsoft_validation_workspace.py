@@ -31,17 +31,29 @@ def upgrade() -> None:
         sa.Column("methodology_trace", sa.Text(), nullable=False),
         sa.Column("report_path", sa.String(length=500), nullable=False),
         sa.Column("exported_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["company_id"], ["companies.id"]),
         sa.ForeignKeyConstraint(["validation_id"], ["company_validations.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("company_id"),
         sa.UniqueConstraint("slug"),
     )
-    op.create_index("ix_company_validation_workspaces_company_id", "company_validation_workspaces", ["company_id"])
-    op.create_index("ix_company_validation_workspaces_slug", "company_validation_workspaces", ["slug"])
-    op.create_index("ix_company_validation_workspaces_status", "company_validation_workspaces", ["status"])
+    op.create_index(
+        "ix_company_validation_workspaces_company_id",
+        "company_validation_workspaces",
+        ["company_id"],
+    )
+    op.create_index(
+        "ix_company_validation_workspaces_slug", "company_validation_workspaces", ["slug"]
+    )
+    op.create_index(
+        "ix_company_validation_workspaces_status", "company_validation_workspaces", ["status"]
+    )
     op.create_index(
         "ix_company_validation_workspaces_validation_id",
         "company_validation_workspaces",
@@ -62,8 +74,12 @@ def upgrade() -> None:
         sa.Column("methodology_trace", sa.Text(), nullable=False),
         sa.Column("lineage_json", sa.Text(), nullable=False),
         sa.Column("source_approval_status", sa.String(length=40), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["workspace_id"], ["company_validation_workspaces.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("workspace_id", "section_key", name="uq_workspace_section_key"),
@@ -96,8 +112,12 @@ def upgrade() -> None:
         sa.Column("lineage_snapshot_json", sa.Text(), nullable=False),
         sa.Column("reviewed_by_user_id", sa.String(length=36), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["reviewed_by_user_id"], ["users.id"]),
         sa.ForeignKeyConstraint(["section_id"], ["company_validation_workspace_sections.id"]),
         sa.ForeignKeyConstraint(["source_id"], ["sources.id"]),

@@ -6,6 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.api.routes.research import (
+    progress_metrics_payload,
+    research_audit_payload,
+    research_queue_payload,
+)
+from app.api.routes.validations import company_validation_payload
 from app.db.models import (
     AIModel,
     ApiKey,
@@ -32,12 +38,6 @@ from app.db.models import (
     SourceMetric,
 )
 from app.db.seed import seed_database
-from app.api.routes.research import (
-    progress_metrics_payload,
-    research_audit_payload,
-    research_queue_payload,
-)
-from app.api.routes.validations import company_validation_payload
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
@@ -92,13 +92,9 @@ def admin_dashboard(
             "api_keys": len(db.scalars(select(ApiKey)).all()),
             "data_lineage": len(db.scalars(select(DataLineage)).all()),
             "company_validations": len(db.scalars(select(CompanyValidation)).all()),
-            "validation_workspaces": len(
-                db.scalars(select(CompanyValidationWorkspace)).all()
-            ),
+            "validation_workspaces": len(db.scalars(select(CompanyValidationWorkspace)).all()),
             "research_queue": len(db.scalars(select(ResearchQueueItem)).all()),
-            "autonomous_evidence": len(
-                db.scalars(select(AutonomousEvidenceRecord)).all()
-            ),
+            "autonomous_evidence": len(db.scalars(select(AutonomousEvidenceRecord)).all()),
         }
     }
 
@@ -748,7 +744,10 @@ def admin_approve_company_validation(
         action="company_validation.approved",
         target_type="company_validation",
         target_id=validation.id,
-        metadata={"company_id": validation.company_id, "score": float(validation.openvals_validation_score)},
+        metadata={
+            "company_id": validation.company_id,
+            "score": float(validation.openvals_validation_score),
+        },
     )
     db.commit()
     return company_validation_payload(validation)
@@ -918,7 +917,10 @@ def admin_assign_research_queue_item(
         from_status=item.status,
         to_status=item.status,
         notes=item.notes,
-        metadata={"previous_assignee": previous_assignee, "assigned_to_user_id": item.assigned_to_user_id},
+        metadata={
+            "previous_assignee": previous_assignee,
+            "assigned_to_user_id": item.assigned_to_user_id,
+        },
     )
     db.commit()
     return research_queue_payload(item)
@@ -1256,9 +1258,7 @@ def get_or_create_metric_definition(db: Session, metric_type: str) -> MetricDefi
     definition = db.scalar(select(MetricDefinition).where(MetricDefinition.key == metric_type))
     if definition:
         return definition
-    aggregation_method = (
-        "sum" if "spend" in metric_type or "revenue" in metric_type else "latest"
-    )
+    aggregation_method = "sum" if "spend" in metric_type or "revenue" in metric_type else "latest"
     definition = MetricDefinition(
         key=metric_type,
         name=metric_type.replace("_", " ").title(),

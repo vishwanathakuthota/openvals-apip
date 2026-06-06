@@ -11,11 +11,11 @@ from app.api.routes import (
     health,
     industries,
     metrics,
-    models,
     microsoft_validation,
+    models,
+    research,
     roi_calculator,
     scoreboard,
-    research,
     sources,
     validations,
 )

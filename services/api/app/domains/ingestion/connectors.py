@@ -32,14 +32,19 @@ class SecFilingsConnector:
             )
         return f"https://www.sec.gov/edgar/browse/?CIK={normalized}"
 
-    def source_record(self, company_name: str, cik: str, published_at: datetime | None = None) -> EvidenceRecord:
+    def source_record(
+        self, company_name: str, cik: str, published_at: datetime | None = None
+    ) -> EvidenceRecord:
         return EvidenceRecord(
             title=f"{company_name} SEC filing registry",
             source_type=self.source_type,
             url=self.filing_index_url(cik),
             publisher="SEC EDGAR",
             published_at=published_at or datetime.now(UTC),
-            methodology_note="SEC filing connector registered official EDGAR evidence for APIP beta ingestion.",
+            methodology_note=(
+                "SEC filing connector registered official EDGAR evidence for APIP "
+                "beta ingestion."
+            ),
         )
 
 

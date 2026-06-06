@@ -1,9 +1,17 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AutonomousEvidenceRecord, ConfidenceScore, MetricDefinition, MetricValue
-from app.domains.autonomous_research.service import PUBLISHED, openvals_classification, public_lineage
-from app.domains.sources.credibility import evidence_coverage_score, source_credibility_score, source_tier
+from app.db.models import ConfidenceScore, MetricDefinition, MetricValue
+from app.domains.autonomous_research.service import (
+    PUBLISHED,
+    openvals_classification,
+    public_lineage,
+)
+from app.domains.sources.credibility import (
+    evidence_coverage_score,
+    source_credibility_score,
+    source_tier,
+)
 
 
 def confidence_payload(confidence: ConfidenceScore | None) -> dict[str, object] | None:

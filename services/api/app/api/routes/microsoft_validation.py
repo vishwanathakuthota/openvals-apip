@@ -41,9 +41,7 @@ def get_company_validation_workspace(
             detail={"code": "validation_workspace_not_found"},
         )
     workspace = db.scalar(
-        select(CompanyValidationWorkspace).where(
-            CompanyValidationWorkspace.slug == company_slug
-        )
+        select(CompanyValidationWorkspace).where(CompanyValidationWorkspace.slug == company_slug)
     )
     if not workspace:
         workspace = ensure_microsoft_validation_workspace(db)

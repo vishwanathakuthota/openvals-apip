@@ -19,11 +19,18 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "metric_values",
-        sa.Column("evidence_classification", sa.String(length=40), nullable=False, server_default="Derived"),
+        sa.Column(
+            "evidence_classification",
+            sa.String(length=40),
+            nullable=False,
+            server_default="Derived",
+        ),
     )
     op.add_column(
         "metric_values",
-        sa.Column("validation_status", sa.String(length=40), nullable=False, server_default="Published"),
+        sa.Column(
+            "validation_status", sa.String(length=40), nullable=False, server_default="Published"
+        ),
     )
     op.add_column(
         "metric_values",
@@ -33,7 +40,9 @@ def upgrade() -> None:
         "metric_values",
         sa.Column("openvals_score", sa.Numeric(5, 2), nullable=True),
     )
-    op.create_index("ix_metric_values_evidence_classification", "metric_values", ["evidence_classification"])
+    op.create_index(
+        "ix_metric_values_evidence_classification", "metric_values", ["evidence_classification"]
+    )
     op.create_index("ix_metric_values_validation_status", "metric_values", ["validation_status"])
 
     op.create_table(
@@ -71,8 +80,12 @@ def upgrade() -> None:
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("version_number", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["company_id"], ["companies.id"]),
         sa.ForeignKeyConstraint(["metric_definition_id"], ["metric_definitions.id"]),
         sa.ForeignKeyConstraint(["metric_value_id"], ["metric_values.id"]),
@@ -80,17 +93,53 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["source_id"], ["sources.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_autonomous_evidence_records_approval_recommendation", "autonomous_evidence_records", ["approval_recommendation"])
-    op.create_index("ix_autonomous_evidence_records_company_id", "autonomous_evidence_records", ["company_id"])
-    op.create_index("ix_autonomous_evidence_records_evidence_classification", "autonomous_evidence_records", ["evidence_classification"])
-    op.create_index("ix_autonomous_evidence_records_metric_definition_id", "autonomous_evidence_records", ["metric_definition_id"])
-    op.create_index("ix_autonomous_evidence_records_metric_value_id", "autonomous_evidence_records", ["metric_value_id"])
-    op.create_index("ix_autonomous_evidence_records_reviewer_decision", "autonomous_evidence_records", ["reviewer_decision"])
-    op.create_index("ix_autonomous_evidence_records_reviewer_user_id", "autonomous_evidence_records", ["reviewer_user_id"])
-    op.create_index("ix_autonomous_evidence_records_source_id", "autonomous_evidence_records", ["source_id"])
-    op.create_index("ix_autonomous_evidence_records_source_type", "autonomous_evidence_records", ["source_type"])
-    op.create_index("ix_autonomous_evidence_records_status", "autonomous_evidence_records", ["status"])
-    op.create_index("ix_autonomous_evidence_records_validation_status", "autonomous_evidence_records", ["validation_status"])
+    op.create_index(
+        "ix_autonomous_evidence_records_approval_recommendation",
+        "autonomous_evidence_records",
+        ["approval_recommendation"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_company_id", "autonomous_evidence_records", ["company_id"]
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_evidence_classification",
+        "autonomous_evidence_records",
+        ["evidence_classification"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_metric_definition_id",
+        "autonomous_evidence_records",
+        ["metric_definition_id"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_metric_value_id",
+        "autonomous_evidence_records",
+        ["metric_value_id"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_reviewer_decision",
+        "autonomous_evidence_records",
+        ["reviewer_decision"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_reviewer_user_id",
+        "autonomous_evidence_records",
+        ["reviewer_user_id"],
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_source_id", "autonomous_evidence_records", ["source_id"]
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_source_type", "autonomous_evidence_records", ["source_type"]
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_status", "autonomous_evidence_records", ["status"]
+    )
+    op.create_index(
+        "ix_autonomous_evidence_records_validation_status",
+        "autonomous_evidence_records",
+        ["validation_status"],
+    )
 
 
 def downgrade() -> None:

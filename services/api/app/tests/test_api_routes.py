@@ -222,7 +222,9 @@ def test_admin_microsoft_validation_source_review_and_export_workflow():
     reviewed = review.json()
     reviewed_evidence = reviewed["sections"][0]["evidence"][0]
     assert reviewed_evidence["approval_status"] == "verified"
-    assert reviewed_evidence["reviewer_notes"] == "Verified against Microsoft investor source lineage."
+    assert (
+        reviewed_evidence["reviewer_notes"] == "Verified against Microsoft investor source lineage."
+    )
 
     exported = client.post("/api/v1/admin/microsoft-validation/export", headers=headers)
 
@@ -246,7 +248,10 @@ def test_autonomous_research_trust_center_queues_phase_one_evidence_without_auto
     assert response.status_code == 200
     payload = response.json()
     assert payload["auto_publish_enabled"] is False
-    assert payload["workflow"] == "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH"
+    assert (
+        payload["workflow"]
+        == "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH"
+    )
     companies = {item["company"] for item in payload["items"]}
     assert companies >= {"Microsoft", "NVIDIA", "Google"}
     assert payload["metrics"]["total_records"] >= 9
@@ -435,7 +440,9 @@ def test_admin_research_assignment_status_evidence_review_and_audit_flow():
     assert review.status_code == 200
     reviewed = review.json()
     assert reviewed["status"] == "Under Review"
-    reviewed_evidence = next(entry for entry in reviewed["evidence"] if entry["id"] == evidence["id"])
+    reviewed_evidence = next(
+        entry for entry in reviewed["evidence"] if entry["id"] == evidence["id"]
+    )
     assert reviewed_evidence["approval_status"] == "approved"
     assert reviewed_evidence["source"]["status"] == "approved"
 
@@ -694,7 +701,9 @@ def test_admin_csv_import_review_approval_and_audit_flow():
     review = client.get("/api/v1/admin/source-metrics", headers=headers)
     assert review.status_code == 200
     reviewed_metric = next(
-        item for item in review.json()["items"] if item["company"] == "OpenAI" and item["metric_type"] == "ai_cash_flow"
+        item
+        for item in review.json()["items"]
+        if item["company"] == "OpenAI" and item["metric_type"] == "ai_cash_flow"
     )
     assert reviewed_metric["value"] == 123456789
     assert reviewed_metric["source_url"] == "https://example.com/openai-2025-cash-flow"
@@ -800,7 +809,8 @@ def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():
         b"name,slug,iso_code,region,source_url,source_type,source_title,publisher,published_at,methodology_note\n"
         b"Australia,australia,AU,Oceania,https://example.com/australia-country,industry_report,"
         b"Australia Country Reference,Example Data Bureau,2026-01-15T00:00:00+00:00,"
-        b"Country catalog row validated from a published source and normalized for APIP lineage tracking.\n"
+        b"Country catalog row validated from a published source and normalized "
+        b"for APIP lineage tracking.\n"
     )
     country_upload = client.post(
         "/api/v1/admin/imports/catalog/countries/csv",
@@ -840,7 +850,8 @@ def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():
         b"name,slug,status,source_url,source_type,source_title,publisher,published_at,methodology_note\n"
         b"Applied Automation,applied-automation,active,https://example.com/applied-automation,"
         b"industry_report,Applied Automation Taxonomy,Example Research,2026-02-10T00:00:00+00:00,"
-        b"Industry catalog row validated from a published taxonomy and normalized for APIP lineage tracking.\n"
+        b"Industry catalog row validated from a published taxonomy and normalized "
+        b"for APIP lineage tracking.\n"
     )
     industry_upload = client.post(
         "/api/v1/admin/imports/catalog/industries/csv",
@@ -856,7 +867,8 @@ def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():
         b"Real Reasoner,real-reasoner,Real Reasoner,real-data-co,active,"
         b"https://example.com/real-reasoner-presentation,investor_presentation,"
         b"Real Reasoner Model Brief,Real Data Co,2026-03-01T00:00:00+00:00,"
-        b"Model catalog row validated from a provider presentation and normalized for APIP lineage tracking.\n"
+        b"Model catalog row validated from a provider presentation and normalized "
+        b"for APIP lineage tracking.\n"
     )
     model_upload = client.post(
         "/api/v1/admin/imports/catalog/models/csv",
@@ -882,7 +894,12 @@ def test_admin_catalog_csv_import_tracks_source_confidence_and_lineage():
 
     audit_logs = client.get("/api/v1/admin/audit-logs", headers=headers)
     actions = {item["action"] for item in audit_logs.json()["items"]}
-    assert {"country.imported", "company.imported", "industry.imported", "model.imported"} <= actions
+    assert {
+        "country.imported",
+        "company.imported",
+        "industry.imported",
+        "model.imported",
+    } <= actions
 
 
 def test_admin_catalog_csv_import_validates_required_source_fields():

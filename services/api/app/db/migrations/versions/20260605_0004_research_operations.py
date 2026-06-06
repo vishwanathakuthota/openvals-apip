@@ -34,8 +34,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["assigned_to_user_id"], ["users.id"]),
         sa.ForeignKeyConstraint(["reviewer_user_id"], ["users.id"]),
     )
-    op.create_index("ix_research_queue_items_company_id", "research_queue_items", ["company_id"], unique=True)
-    op.create_index("ix_research_queue_items_validation_id", "research_queue_items", ["validation_id"])
+    op.create_index(
+        "ix_research_queue_items_company_id", "research_queue_items", ["company_id"], unique=True
+    )
+    op.create_index(
+        "ix_research_queue_items_validation_id", "research_queue_items", ["validation_id"]
+    )
     op.create_index("ix_research_queue_items_status", "research_queue_items", ["status"])
     op.create_index("ix_research_queue_items_priority", "research_queue_items", ["priority"])
     op.create_index(
@@ -73,8 +77,12 @@ def upgrade() -> None:
     op.create_index("ix_research_evidence_queue_item_id", "research_evidence", ["queue_item_id"])
     op.create_index("ix_research_evidence_source_id", "research_evidence", ["source_id"])
     op.create_index("ix_research_evidence_evidence_type", "research_evidence", ["evidence_type"])
-    op.create_index("ix_research_evidence_collection_status", "research_evidence", ["collection_status"])
-    op.create_index("ix_research_evidence_approval_status", "research_evidence", ["approval_status"])
+    op.create_index(
+        "ix_research_evidence_collection_status", "research_evidence", ["collection_status"]
+    )
+    op.create_index(
+        "ix_research_evidence_approval_status", "research_evidence", ["approval_status"]
+    )
     op.create_index(
         "ix_research_evidence_collected_by_user_id",
         "research_evidence",
@@ -100,8 +108,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["queue_item_id"], ["research_queue_items.id"]),
         sa.ForeignKeyConstraint(["actor_user_id"], ["users.id"]),
     )
-    op.create_index("ix_research_audit_trail_queue_item_id", "research_audit_trail", ["queue_item_id"])
-    op.create_index("ix_research_audit_trail_actor_user_id", "research_audit_trail", ["actor_user_id"])
+    op.create_index(
+        "ix_research_audit_trail_queue_item_id", "research_audit_trail", ["queue_item_id"]
+    )
+    op.create_index(
+        "ix_research_audit_trail_actor_user_id", "research_audit_trail", ["actor_user_id"]
+    )
     op.create_index("ix_research_audit_trail_action", "research_audit_trail", ["action"])
 
 
