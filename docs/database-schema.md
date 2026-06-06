@@ -194,6 +194,10 @@ Stores values for companies, industries, countries, models, and global aggregate
 | currency | char(3) | Nullable, default USD for money |
 | methodology | text | Calculation or estimate method |
 | status | text | `draft`, `approved`, `rejected`, `superseded` |
+| evidence_classification | text | `Reported`, `Estimated`, `Derived`, or `Validated` |
+| validation_status | text | Public validation status |
+| evidence_coverage_score | numeric(5,2) | Nullable public coverage score |
+| openvals_score | numeric(5,2) | Nullable public OpenVals Score |
 | created_by_user_id | uuid | FK to `users.id`, nullable |
 | approved_by_user_id | uuid | FK to `users.id`, nullable |
 | approved_at | timestamptz | Nullable |
@@ -373,6 +377,50 @@ Stores immutable research operations audit events.
 | notes | text | Nullable |
 | metadata_json | text | Structured audit metadata |
 | created_at | timestamptz | Required |
+
+## Autonomous Research Operations
+
+### autonomous_evidence_records
+
+Stores the approval-gated lifecycle for evidence discovered by APIP agents.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | Primary key |
+| company_id | uuid | FK to `companies.id` |
+| metric_definition_id | uuid | FK to `metric_definitions.id` |
+| metric_value_id | uuid | FK to `metric_values.id`, nullable until published |
+| source_id | uuid | FK to `sources.id` |
+| previous_value | numeric(20,6) | Previous public value, nullable |
+| discovered_value | numeric(20,6) | Collected value |
+| source_url | text | Source URL |
+| source_type | text | Source taxonomy |
+| evidence_text | text | Evidence summary |
+| collection_timestamp | timestamptz | Collection timestamp |
+| collection_method | text | Example `approved_source_registry` |
+| status | text | `Collected`, `Under Review`, `Approved`, `Rejected`, `Published`, or `Additional Evidence Requested` |
+| evidence_classification | text | `Reported`, `Estimated`, `Derived`, or `Validated` |
+| confidence_score | numeric(5,2) | Confidence Engine score |
+| confidence_label | text | Confidence label |
+| evidence_coverage_score | numeric(5,2) | Required evidence found divided by expected evidence |
+| validation_score | numeric(5,2) | Validation Agent score |
+| openvals_score | numeric(5,2) | OpenVals Score |
+| transparency_score | numeric(5,2) | Methodology transparency |
+| reproducibility_score | numeric(5,2) | Reproducibility score |
+| source_quality_score | numeric(5,2) | Source quality score |
+| validation_timestamp | timestamptz | Nullable |
+| validation_notes | text | Nullable |
+| validation_status | text | Workflow validation status |
+| approval_recommendation | text | `Auto Approve`, `Manual Review`, or `Reject` |
+| reviewer_user_id | uuid | FK to `users.id`, nullable |
+| reviewed_at | timestamptz | Nullable |
+| reviewer_decision | text | Reviewer action |
+| reviewer_notes | text | Nullable |
+| approved_at | timestamptz | Nullable |
+| published_at | timestamptz | Nullable |
+| version_number | integer | Publication version |
+| created_at | timestamptz | Required |
+| updated_at | timestamptz | Required |
 
 ## Microsoft Gold Standard Validation
 

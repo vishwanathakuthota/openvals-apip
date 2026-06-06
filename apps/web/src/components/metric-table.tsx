@@ -18,17 +18,19 @@ export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
       <div className="overflow-x-auto rounded-lg border border-border">
-        <div className="grid min-w-[860px] grid-cols-[1fr_120px_130px_120px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <div className="grid min-w-[1040px] grid-cols-[1fr_120px_130px_120px_130px_130px_110px_140px] border-b border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           <span>Metric</span>
           <span>Value</span>
           <span>Confidence</span>
           <span>Coverage</span>
+          <span>Class</span>
+          <span>Validation</span>
           <span>Sources</span>
           <span>Updated</span>
         </div>
         {metrics.map((metric) => (
           <div
-            className="grid min-w-[860px] grid-cols-[1fr_120px_130px_120px_110px_140px] border-b border-border px-4 py-3 text-sm"
+            className="grid min-w-[1040px] grid-cols-[1fr_120px_130px_120px_130px_130px_110px_140px] border-b border-border px-4 py-3 text-sm"
             key={metric.id}
           >
             <span className="group relative">
@@ -45,12 +47,23 @@ export function MetricTable({ metrics }: { metrics: MetricValue[] }) {
                   Coverage: {metric.coverage_score?.toFixed(0) ?? "n/a"} ({metric.coverage_label ?? "n/a"})
                 </span>
                 <span className="text-muted-foreground">Sources: {metric.source_count ?? 0}</span>
+                <span className="text-muted-foreground">
+                  Classification: {metric.evidence_classification ?? "n/a"}
+                </span>
+                <span className="text-muted-foreground">
+                  Validation status: {metric.validation_status ?? "n/a"}
+                </span>
+                <span className="text-muted-foreground">
+                  OpenVals Score: {metric.openvals_score?.toFixed(1) ?? "n/a"}
+                </span>
                 <span className="text-muted-foreground">Last updated: {formatDate(metric.last_updated)}</span>
               </span>
             </span>
             <strong>{formatMetric(metric.value, metric.unit)}</strong>
             <Badge>{metric.confidence_label ?? metric.confidence?.label ?? "n/a"}</Badge>
             <Badge>{metric.coverage_label ?? "n/a"}</Badge>
+            <Badge>{metric.evidence_classification ?? "n/a"}</Badge>
+            <Badge>{metric.validation_status ?? "n/a"}</Badge>
             <span>{metric.source_count ?? metric.confidence?.source_count ?? 0}</span>
             <span>{formatDate(metric.last_updated ?? metric.confidence?.last_updated)}</span>
           </div>
@@ -86,6 +99,14 @@ function SourceTransparencyPanel({ metric }: { metric?: MetricValue }) {
             </span>
             <span className="text-xs text-muted-foreground">{source.publisher}</span>
             <span className="text-xs text-muted-foreground">{formatDate(source.published_at)}</span>
+            {source.lineage ? (
+              <div className="mt-2 grid gap-1 border-t border-border pt-2 text-xs text-muted-foreground">
+                <span>Collection date: {formatDate(source.lineage.collection_date)}</span>
+                <span>Evidence coverage: {source.lineage.evidence_coverage.toFixed(1)}%</span>
+                <span>Reviewer: {source.lineage.reviewer ?? "n/a"}</span>
+                <span>Approval date: {formatDate(source.lineage.approval_date)}</span>
+              </div>
+            ) : null}
           </div>
         ))}
       </CardContent>

@@ -38,34 +38,44 @@ export default async function HomePage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard
+          classification="Validated"
           confidence={scoreboard.confidence}
           label="Total AI Spend"
           value={scoreboard.total_ai_spend}
           unit="usd"
+          validationStatus="Published"
         />
         <MetricCard
+          classification="Validated"
           confidence={scoreboard.confidence}
           label="Total AI Revenue"
           value={scoreboard.total_ai_revenue}
           unit="usd"
+          validationStatus="Published"
         />
         <MetricCard
+          classification="Derived"
           confidence={scoreboard.confidence}
           label="Net Profit/Loss"
           value={scoreboard.net_profit}
           unit="usd"
+          validationStatus="Published"
         />
         <MetricCard
+          classification="Derived"
           confidence={scoreboard.confidence}
           label="Global ROI"
           value={scoreboard.global_roi}
           unit="ratio"
+          validationStatus="Published"
         />
         <MetricCard
+          classification="Derived"
           confidence={topRealityIndex?.confidence ?? scoreboard.confidence}
           label="AI Reality Index"
           value={topRealityIndex?.score ?? 0}
           unit="score"
+          validationStatus="Published"
         />
       </section>
 

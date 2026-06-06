@@ -56,12 +56,14 @@ const navItems = [
   { href: "/countries", label: "Countries", icon: Globe2 },
   { href: "/models", label: "Models", icon: ShieldCheck },
   { href: "/reality-index", label: "AI Reality Index", icon: Orbit },
+  { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
   { href: "/calculator", label: "ROI Calculator", icon: Calculator },
   { href: "/developers", label: "Developers", icon: Code2 }
 ];
 
 const footerLinks = [
   { href: "/methodology", label: "Methodology", icon: BookOpen },
+  { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
   { href: "/about", label: "About", icon: Info },
   { href: "/disclaimer", label: "Disclaimer", icon: FileWarning },
   { href: "/developers", label: "Developers", icon: Code2 }

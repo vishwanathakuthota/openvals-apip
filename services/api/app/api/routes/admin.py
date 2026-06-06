@@ -10,6 +10,7 @@ from app.db.models import (
     AIModel,
     ApiKey,
     AuditLog,
+    AutonomousEvidenceRecord,
     Company,
     CompanyValidation,
     CompanyValidationEvidence,
@@ -95,6 +96,9 @@ def admin_dashboard(
                 db.scalars(select(CompanyValidationWorkspace)).all()
             ),
             "research_queue": len(db.scalars(select(ResearchQueueItem)).all()),
+            "autonomous_evidence": len(
+                db.scalars(select(AutonomousEvidenceRecord)).all()
+            ),
         }
     }
 

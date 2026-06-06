@@ -237,6 +237,64 @@ def test_admin_microsoft_validation_source_review_and_export_workflow():
     assert "microsoft_validation.report_exported" in actions
 
 
+def test_autonomous_research_trust_center_queues_phase_one_evidence_without_auto_publish():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/trust-center", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["auto_publish_enabled"] is False
+    assert payload["workflow"] == "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH"
+    companies = {item["company"] for item in payload["items"]}
+    assert companies >= {"Microsoft", "NVIDIA", "Google"}
+    assert payload["metrics"]["total_records"] >= 9
+    assert payload["metrics"]["under_review_records"] >= 9
+    assert payload["metrics"]["published_records"] == 0
+    first = payload["items"][0]
+    assert first["status"] == "Under Review"
+    assert first["evidence_classification"] in {"Reported", "Estimated", "Derived", "Validated"}
+    assert first["confidence_score"] >= 0
+    assert first["evidence_coverage_score"] >= 0
+    assert first["openvals_score"] >= 0
+    assert first["approval_recommendation"] in {"Auto Approve", "Manual Review", "Reject"}
+    assert first["lineage"]["source_url"].startswith("https://")
+
+
+def test_admin_autonomous_review_and_publisher_flow_updates_public_lineage():
+    client = build_client()
+    headers = auth_headers(client)
+
+    dashboard = client.get("/api/v1/admin/autonomous-research", headers=headers)
+
+    assert dashboard.status_code == 200
+    record = dashboard.json()["approval_queue"][0]
+
+    review = client.patch(
+        f"/api/v1/admin/autonomous-research/evidence/{record['id']}/review",
+        headers=headers,
+        json={"decision": "approve", "notes": "Approved for controlled V1 publication."},
+    )
+
+    assert review.status_code == 200
+    reviewed = review.json()
+    assert reviewed["status"] == "Approved"
+    assert reviewed["evidence_classification"] == "Validated"
+    assert reviewed["reviewer"] == "APIP Admin"
+    assert reviewed["approved_at"]
+
+    publish = client.post("/api/v1/admin/autonomous-research/run/publisher", headers=headers)
+
+    assert publish.status_code == 200
+    assert publish.json()["agent"] == "Publisher Agent"
+    lineage = client.get("/api/v1/source-lineage", headers=api_key_headers(client))
+    assert lineage.status_code == 200
+    assert lineage.json()["items"]
+    published = client.get("/api/v1/trust-center", headers=api_key_headers(client)).json()
+    assert published["metrics"]["published_records"] >= 1
+
+
 def test_research_operations_dashboard_returns_queue_and_progress_metrics():
     client = build_client()
     headers = api_key_headers(client)

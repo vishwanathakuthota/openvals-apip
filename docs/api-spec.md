@@ -708,6 +708,78 @@ Request:
 
 Refreshes the Microsoft validation report export, updates `exported_at`, writes an audit log, and returns the report payload.
 
+## Autonomous Research Operations
+
+### GET /api/v1/trust-center
+
+Returns the OpenVals Trust Center dashboard. Requires public API key access.
+
+Response includes:
+
+- Workflow: `COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH`
+- `auto_publish_enabled: false`
+- Trust metrics
+- Evidence records
+- Classification badges
+- Confidence, coverage, validation, and OpenVals Score fields
+- Source lineage data
+
+### GET /api/v1/evidence-timeline
+
+Returns collected evidence ordered by collection timestamp.
+
+### GET /api/v1/source-lineage
+
+Returns public lineage for published records only.
+
+### GET /api/v1/research-queue
+
+Returns collected evidence records.
+
+### GET /api/v1/validation-queue
+
+Returns evidence records under validation review.
+
+### GET /api/v1/approval-queue
+
+Returns records queued for approval recommendation and human review.
+
+### GET /api/v1/publishing-queue
+
+Returns approved records waiting for Publisher Agent release.
+
+### GET /api/v1/admin/autonomous-research
+
+Returns admin dashboard payload for Research Queue, Validation Queue, Approval Queue, Publishing Queue, Evidence Timeline, Source Lineage Explorer, and OpenVals Trust Center.
+
+### POST /api/v1/admin/autonomous-research/run/{agent_name}
+
+Runs one autonomous agent. Supported values:
+
+- `research`
+- `validation`
+- `approval`
+- `publisher`
+- `all`
+
+### PATCH /api/v1/admin/autonomous-research/evidence/{record_id}/review
+
+Stores human reviewer decision and notes. Supported decisions:
+
+- `approve`
+- `reject`
+- `request_additional_evidence`
+
+Request:
+
+```json
+{
+  "decision": "approve",
+  "notes": "Approved for controlled publication.",
+  "confidence_score": 96
+}
+```
+
 ### GET /api/v1/admin/users
 
 Lists admin/analyst users.

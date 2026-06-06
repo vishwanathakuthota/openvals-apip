@@ -1,7 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ConfidenceScore, MetricDefinition, MetricValue
+from app.db.models import AutonomousEvidenceRecord, ConfidenceScore, MetricDefinition, MetricValue
+from app.domains.autonomous_research.service import PUBLISHED, openvals_classification, public_lineage
 from app.domains.sources.credibility import evidence_coverage_score, source_credibility_score, source_tier
 
 
@@ -41,9 +42,15 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
             else None,
             "reliability_score": link.source.reliability_score,
             "evidence_note": link.evidence_note,
+            "lineage": source_lineage_payload(metric, link.source.id),
         }
         for link in metric.source_links
     ]
+    published_records = [
+        record for record in metric.autonomous_evidence_records if record.status == PUBLISHED
+    ]
+    lineage = [public_lineage(record) for record in published_records]
+    openvals_score = float(metric.openvals_score) if metric.openvals_score is not None else None
     return {
         "id": metric.id,
         "metric_key": metric.metric_definition.key,
@@ -54,6 +61,10 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
         "confidence_label": confidence["label"] if confidence else None,
         "source_count": confidence["source_count"] if confidence else 0,
         "coverage_score": coverage.score,
+        "evidence_classification": metric.evidence_classification,
+        "validation_status": metric.validation_status,
+        "openvals_score": openvals_score,
+        "openvals_classification": openvals_classification(openvals_score or 0),
         "coverage_label": coverage.label,
         "coverage": {
             "score": coverage.score,
@@ -71,7 +82,22 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
         "methodology": metric.methodology,
         "confidence": confidence,
         "sources": sources,
+        "source_lineage": lineage,
     }
+
+
+def source_lineage_payload(metric: MetricValue, source_id: str) -> dict[str, object] | None:
+    record = next(
+        (
+            item
+            for item in metric.autonomous_evidence_records
+            if item.source_id == source_id and item.status == PUBLISHED
+        ),
+        None,
+    )
+    if not record:
+        return None
+    return public_lineage(record)
 
 
 def list_metric_definitions(db: Session) -> list[dict[str, object]]:

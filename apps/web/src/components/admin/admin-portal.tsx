@@ -72,6 +72,45 @@ type ResearchProgress = {
   collected_evidence_count: number;
   approved_evidence_count: number;
 };
+type AutonomousEvidenceRecord = {
+  id: string;
+  company: string;
+  metric: string;
+  discovered_value: number;
+  source_type: string;
+  status: string;
+  evidence_classification: string;
+  confidence_score: number;
+  confidence_label: string;
+  evidence_coverage_score: number;
+  openvals_score: number;
+  openvals_classification: string;
+  approval_recommendation?: string | null;
+  reviewer?: string | null;
+  reviewed_at?: string | null;
+  approved_at?: string | null;
+  published_at?: string | null;
+};
+type AutonomousDashboard = {
+  workflow: string;
+  auto_publish_enabled: boolean;
+  research_queue: AutonomousEvidenceRecord[];
+  validation_queue: AutonomousEvidenceRecord[];
+  approval_queue: AutonomousEvidenceRecord[];
+  publishing_queue: AutonomousEvidenceRecord[];
+  evidence_timeline: AutonomousEvidenceRecord[];
+  source_lineage: unknown[];
+  trust_center: {
+    total_records: number;
+    published_records: number;
+    approved_records: number;
+    under_review_records: number;
+    manual_review_required: number;
+    average_confidence: number;
+    average_openvals_score: number;
+    public_lineage_records: number;
+  };
+};
 type DashboardCounts = Record<string, number>;
 
 const resources = [
@@ -95,6 +134,7 @@ export function AdminPortal() {
   const [companyValidations, setCompanyValidations] = useState<CompanyValidation[]>([]);
   const [researchQueue, setResearchQueue] = useState<ResearchQueueItem[]>([]);
   const [researchProgress, setResearchProgress] = useState<ResearchProgress | null>(null);
+  const [autonomousDashboard, setAutonomousDashboard] = useState<AutonomousDashboard | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
@@ -169,6 +209,7 @@ export function AdminPortal() {
       validationsResponse,
       researchQueueResponse,
       researchProgressResponse,
+      autonomousResponse,
       audits,
       ...resourceResponses
     ] = await Promise.all([
@@ -178,6 +219,7 @@ export function AdminPortal() {
       fetch("/api/admin/company-validations", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/research-queue", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/research-progress", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/autonomous-research", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/audit-logs", { headers: authHeader }).then((response) => response.json()),
       ...resources.map((resource) =>
         fetch(`/api/admin/${resource.key}`, { headers: authHeader }).then((response) => response.json())
@@ -189,6 +231,7 @@ export function AdminPortal() {
     setCompanyValidations(validationsResponse.items ?? []);
     setResearchQueue(researchQueueResponse.items ?? []);
     setResearchProgress(researchProgressResponse ?? null);
+    setAutonomousDashboard(autonomousResponse ?? null);
     setAuditLogs(audits.items ?? []);
     setItems(Object.fromEntries(resources.map((resource, index) => [resource.key, resourceResponses[index].items ?? []])));
   }, [token]);
@@ -333,6 +376,39 @@ export function AdminPortal() {
       await refreshAll();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Research assignment failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runAutonomousAgent(agentName: string) {
+    setBusy(true);
+    try {
+      await adminFetch(`autonomous-research/run/${agentName}`, { method: "POST" });
+      setMessage(`${agentName.replaceAll("_", " ")} agent run completed`);
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Agent run failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reviewAutonomousEvidence(id: string, decision: string) {
+    setBusy(true);
+    try {
+      await adminFetch(`autonomous-research/evidence/${id}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision,
+          notes: `Reviewer selected ${decision.replaceAll("_", " ")} from Autonomous Research dashboard.`
+        })
+      });
+      setMessage(`Evidence ${decision.replaceAll("_", " ")}`);
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Evidence review failed");
     } finally {
       setBusy(false);
     }
@@ -514,6 +590,28 @@ export function AdminPortal() {
           items={researchQueue}
           onAssign={assignResearchToMe}
           onStatus={updateResearchStatus}
+        />
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Autonomous Research Operations</p>
+            <h2 className="text-xl font-semibold">Trust Workflow Queues</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["research", "validation", "approval", "publisher"].map((agentName) => (
+              <Button disabled={busy} key={agentName} onClick={() => runAutonomousAgent(agentName)} size="sm" variant="outline">
+                Run {agentName}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <AutonomousDashboardView
+          busy={busy}
+          dashboard={autonomousDashboard}
+          onReview={reviewAutonomousEvidence}
+          onRunPublisher={() => runAutonomousAgent("publisher")}
         />
       </section>
 
@@ -781,6 +879,151 @@ function ResearchQueueTable({
         </tbody>
       </table>
       {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No research queue items yet.</p> : null}
+    </div>
+  );
+}
+
+function AutonomousDashboardView({
+  busy,
+  dashboard,
+  onReview,
+  onRunPublisher
+}: {
+  busy: boolean;
+  dashboard: AutonomousDashboard | null;
+  onReview: (id: string, decision: string) => void;
+  onRunPublisher: () => void;
+}) {
+  if (!dashboard) {
+    return <p className="text-sm text-muted-foreground">Autonomous research queues are loading.</p>;
+  }
+  const metrics = [
+    ["Records", dashboard.trust_center.total_records],
+    ["Under Review", dashboard.trust_center.under_review_records],
+    ["Manual Review", dashboard.trust_center.manual_review_required],
+    ["Approved", dashboard.trust_center.approved_records],
+    ["Published", dashboard.trust_center.published_records],
+    ["Avg Confidence", dashboard.trust_center.average_confidence.toFixed(1)],
+    ["Avg OpenVals", dashboard.trust_center.average_openvals_score.toFixed(1)]
+  ];
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap gap-2">
+        {dashboard.workflow.split(" -> ").map((step) => (
+          <Badge key={step}>{step}</Badge>
+        ))}
+        <Badge className="border-emerald-500/50 text-emerald-300">
+          Auto publish: {dashboard.auto_publish_enabled ? "on" : "off"}
+        </Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+        {metrics.map(([label, value]) => (
+          <div className="rounded-md border border-border bg-background p-3" key={String(label)}>
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <strong className="block text-xl">{value}</strong>
+          </div>
+        ))}
+      </div>
+      <AutonomousQueueTable
+        busy={busy}
+        items={dashboard.approval_queue}
+        onReview={onReview}
+        queueName="Approval Queue"
+      />
+      <AutonomousQueueTable
+        busy={busy}
+        items={dashboard.publishing_queue}
+        onReview={onReview}
+        onRunPublisher={onRunPublisher}
+        queueName="Publishing Queue"
+      />
+      <AutonomousQueueTable
+        busy={busy}
+        items={dashboard.evidence_timeline.slice(0, 12)}
+        onReview={onReview}
+        queueName="Evidence Timeline"
+      />
+      <p className="text-sm text-muted-foreground">
+        Source lineage explorer records: {dashboard.source_lineage.length}. Public lineage appears only after approved
+        evidence is published.
+      </p>
+    </div>
+  );
+}
+
+function AutonomousQueueTable({
+  busy,
+  items,
+  onReview,
+  onRunPublisher,
+  queueName
+}: {
+  busy: boolean;
+  items: AutonomousEvidenceRecord[];
+  onReview: (id: string, decision: string) => void;
+  onRunPublisher?: () => void;
+  queueName: string;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="text-base font-semibold">{queueName}</h3>
+        {onRunPublisher ? (
+          <Button disabled={busy || items.length === 0} onClick={onRunPublisher} size="sm">
+            Publish Approved
+          </Button>
+        ) : null}
+      </div>
+      <table className="w-full min-w-[1120px] text-left text-sm">
+        <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="py-3 pr-3">Company</th>
+            <th className="py-3 pr-3">Metric</th>
+            <th className="py-3 pr-3">Class</th>
+            <th className="py-3 pr-3">Status</th>
+            <th className="py-3 pr-3">Confidence</th>
+            <th className="py-3 pr-3">Coverage</th>
+            <th className="py-3 pr-3">OpenVals</th>
+            <th className="py-3 pr-3">Recommendation</th>
+            <th className="py-3 pr-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr className="border-b border-border/70" key={item.id}>
+              <td className="py-3 pr-3">{item.company}</td>
+              <td className="py-3 pr-3">{item.metric.replaceAll("_", " ")}</td>
+              <td className="py-3 pr-3">
+                <Badge>{item.evidence_classification}</Badge>
+              </td>
+              <td className="py-3 pr-3">
+                <Badge className={statusClass(item.status.toLowerCase().replaceAll(" ", "_"))}>
+                  {item.status}
+                </Badge>
+              </td>
+              <td className="py-3 pr-3 tabular-nums">{item.confidence_score.toFixed(1)}</td>
+              <td className="py-3 pr-3 tabular-nums">{item.evidence_coverage_score.toFixed(1)}%</td>
+              <td className="py-3 pr-3">
+                <span className="tabular-nums">{item.openvals_score.toFixed(1)}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{item.openvals_classification}</span>
+              </td>
+              <td className="py-3 pr-3">{item.approval_recommendation ?? "n/a"}</td>
+              <td className="flex flex-wrap gap-2 py-3 pr-3">
+                <Button disabled={busy || item.status !== "Under Review"} onClick={() => onReview(item.id, "approve")} size="sm">
+                  Approve
+                </Button>
+                <Button disabled={busy || item.status !== "Under Review"} onClick={() => onReview(item.id, "request_additional_evidence")} size="sm" variant="outline">
+                  More Evidence
+                </Button>
+                <Button disabled={busy || item.status !== "Under Review"} onClick={() => onReview(item.id, "reject")} size="sm" variant="outline">
+                  Reject
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length === 0 ? <p className="py-3 text-sm text-muted-foreground">No records in {queueName.toLowerCase()}.</p> : null}
     </div>
   );
 }
