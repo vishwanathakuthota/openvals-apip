@@ -349,6 +349,99 @@ def test_microsoft_gold_standard_metrics_have_evidence_lineage_and_scores():
             assert lineage["openvals_score"] > 0
 
 
+def test_nvidia_gold_standard_validation_report_and_artifacts_are_generated():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    report = client.get("/api/v1/companies/nvidia/validation-report", headers=headers)
+    timeline = client.get("/api/v1/companies/nvidia/evidence-timeline", headers=headers)
+    lineage = client.get("/api/v1/companies/nvidia/source-lineage", headers=headers)
+    score = client.get("/api/v1/companies/nvidia/openvals-score", headers=headers)
+    trust = client.get("/api/v1/companies/nvidia/trust-report", headers=headers)
+
+    assert report.status_code == 200
+    assert timeline.status_code == 200
+    assert lineage.status_code == 200
+    assert score.status_code == 200
+    assert trust.status_code == 200
+    report_payload = report.json()
+    assert report_payload["company"] == "NVIDIA"
+    assert report_payload["status"] == "gold_standard"
+    assert report_payload["gold_standard_rank"] == 2
+    assert report_payload["gold_standard_label"] == "Gold Standard Company #2"
+    assert report_payload["report_path"] == "/companies/nvidia/validation-report"
+    assert report_payload["evidence_coverage_score"] == 100.0
+    assert {section["title"] for section in report_payload["sections"]} == {
+        "Revenue Evidence",
+        "AI Revenue Evidence",
+        "AI Investment Evidence",
+        "Infrastructure Investment Evidence",
+        "Earnings Call Evidence",
+        "Investor Presentation Evidence",
+    }
+    for section in report_payload["sections"]:
+        assert section["coverage_score"] == 100.0
+        assert section["source_approval_status"] == "approved"
+        assert section["lineage"]
+        assert section["evidence"]
+    assert timeline.json()["items"]
+    assert lineage.json()["items"]
+    assert score.json()["gold_standard_rank"] == 2
+    assert score.json()["gold_standard_label"] == "Gold Standard Company #2"
+    assert score.json()["published_records"] == 6
+    assert trust.json()["status"] == "gold_standard"
+    assert trust.json()["metrics"]["published_records"] == 6
+
+
+def test_nvidia_gold_standard_metrics_have_evidence_lineage_and_scores():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    companies = client.get("/api/v1/companies", headers=headers).json()["items"]
+    nvidia = next(item for item in companies if item["slug"] == "nvidia")
+    response = client.get(
+        f"/api/v1/metrics/search?entity_type=company&entity_id={nvidia['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    metrics = {
+        item["metric_key"]: item
+        for item in response.json()["items"]
+        if item["entity_id"] == nvidia["id"]
+    }
+    assert set(metrics) == {
+        "adoption",
+        "ai_revenue",
+        "ai_spend",
+        "gross_margin",
+        "revenue_growth",
+        "roi",
+    }
+    for metric in metrics.values():
+        assert metric["value"] is not None
+        assert metric["confidence_score"] > 0
+        assert metric["confidence_label"]
+        assert metric["source_count"] >= 1
+        assert metric["last_updated"]
+        assert metric["methodology_note"]
+        assert metric["coverage_score"] > 0
+        assert metric["coverage"]["source_count"] >= 1
+        assert metric["openvals_score"] > 0
+        assert metric["openvals_classification"]
+        assert metric["evidence_classification"] == "Validated"
+        assert metric["validation_status"] == "Published"
+        assert metric["sources"]
+        assert metric["source_lineage"]
+        for lineage_item in metric["source_lineage"]:
+            assert lineage_item["source_url"].startswith("https://")
+            assert lineage_item["confidence"] > 0
+            assert lineage_item["evidence_coverage"] > 0
+            assert lineage_item["reviewer"] == "APIP Admin"
+            assert lineage_item["approval_date"]
+            assert lineage_item["openvals_score"] > 0
+
+
 def test_admin_autonomous_review_and_publisher_flow_updates_public_lineage():
     client = build_client()
     headers = auth_headers(client)

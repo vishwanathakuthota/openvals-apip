@@ -118,6 +118,29 @@ export function fetchMicrosoftValidationReport() {
   });
 }
 
+export function fetchNvidiaValidationReport() {
+  return apiFetch<MicrosoftValidationReport>("companies/nvidia/validation-report", {
+    id: "nvidia-validation-fallback",
+    company: "NVIDIA",
+    company_slug: "nvidia",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    report_path: "/companies/nvidia/validation-report",
+    methodology_version: "gold-standard-v1",
+    methodology_trace:
+      "Gold Standard v1 validates NVIDIA through required evidence sections, source approval, lineage, reviewer notes, and methodology traceability.",
+    reviewer_notes: "Configure the backend API to load the live NVIDIA validation workspace.",
+    evidence_coverage_score: 0,
+    openvals_validation_score: 0,
+    openvals_validation_label: "Insufficient Evidence",
+    exported_at: null,
+    last_updated: null,
+    sections: [],
+    source_lineage: []
+  });
+}
+
 export function fetchTrustCenter() {
   return apiFetch<TrustCenter>("trust-center", {
     workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
@@ -143,10 +166,24 @@ export function fetchMicrosoftEvidenceTimeline() {
   );
 }
 
+export function fetchNvidiaEvidenceTimeline() {
+  return apiFetch<CollectionResponse<AutonomousEvidenceRecord>>(
+    "companies/nvidia/evidence-timeline",
+    { items: [], next_cursor: null }
+  );
+}
+
 export function fetchMicrosoftSourceLineage() {
   return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
     "companies/microsoft/source-lineage",
     { company: "Microsoft", items: [], next_cursor: null }
+  );
+}
+
+export function fetchNvidiaSourceLineage() {
+  return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
+    "companies/nvidia/source-lineage",
+    { company: "NVIDIA", items: [], next_cursor: null }
   );
 }
 
@@ -167,10 +204,50 @@ export function fetchMicrosoftOpenValsScore() {
   });
 }
 
+export function fetchNvidiaOpenValsScore() {
+  return apiFetch<CompanyOpenValsScore>("companies/nvidia/openvals-score", {
+    company: "NVIDIA",
+    company_slug: "nvidia",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    openvals_score: 0,
+    classification: "Weak",
+    published_records: 0,
+    evidence_coverage_score: 0,
+    confidence_score: 0,
+    source_count: 0,
+    last_updated: null,
+    methodology_note: "NVIDIA Gold Standard validation data is not available yet."
+  });
+}
+
 export function fetchMicrosoftTrustReport() {
   return apiFetch<TrustCenter>("companies/microsoft/trust-report", {
     company: "Microsoft",
     company_slug: "microsoft",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+    auto_publish_enabled: false,
+    metrics: {
+      total_records: 0,
+      published_records: 0,
+      approved_records: 0,
+      under_review_records: 0,
+      manual_review_required: 0,
+      average_confidence: 0,
+      average_openvals_score: 0,
+      public_lineage_records: 0
+    },
+    items: []
+  });
+}
+
+export function fetchNvidiaTrustReport() {
+  return apiFetch<TrustCenter>("companies/nvidia/trust-report", {
+    company: "NVIDIA",
+    company_slug: "nvidia",
     status: "in_progress",
     gold_standard_rank: null,
     gold_standard_label: null,

@@ -26,6 +26,8 @@ from app.domains.validation.service import (
 
 MICROSOFT_WORKSPACE_SLUG = "microsoft"
 MICROSOFT_REPORT_PATH = "/companies/microsoft/validation-report"
+NVIDIA_WORKSPACE_SLUG = "nvidia"
+NVIDIA_REPORT_PATH = "/companies/nvidia/validation-report"
 MICROSOFT_SECTION_SOURCE_MAP = {
     "revenue_evidence": ["sec_filing", "annual_report"],
     "ai_revenue_evidence": ["annual_report", "earnings_call", "investor_presentation"],
@@ -38,6 +40,7 @@ MICROSOFT_SECTION_SOURCE_MAP = {
     "earnings_call_evidence": ["earnings_call"],
     "investor_presentation_evidence": ["investor_presentation"],
 }
+NVIDIA_SECTION_SOURCE_MAP = MICROSOFT_SECTION_SOURCE_MAP
 
 
 @dataclass(frozen=True)
@@ -146,6 +149,86 @@ MICROSOFT_VALIDATION_SECTIONS = [
     ),
 ]
 
+NVIDIA_VALIDATION_SECTIONS = [
+    MicrosoftValidationSectionSpec(
+        key="revenue_evidence",
+        title="Revenue Evidence",
+        description="Validates NVIDIA total revenue context before AI attribution.",
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["revenue_evidence"],
+        reviewer_notes="Revenue baseline uses filing and annual report evidence.",
+        methodology_trace=(
+            "Trace revenue baseline to NVIDIA SEC filing registry and annual report before "
+            "using it as denominator or reconciliation context for AI-specific metrics."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="ai_revenue_evidence",
+        title="AI Revenue Evidence",
+        description=(
+            "Tracks AI-related revenue signals across data center, accelerator, "
+            "and platform disclosures."
+        ),
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["ai_revenue_evidence"],
+        reviewer_notes=(
+            "AI revenue uses sourced NVIDIA data center and accelerator demand evidence."
+        ),
+        methodology_trace=(
+            "Use public NVIDIA evidence to map AI revenue signals to APIP metric "
+            "definitions and preserve direct disclosure gaps in methodology notes."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="ai_investment_evidence",
+        title="AI Investment Evidence",
+        description="Tracks AI investment, operating spend, and platform investment evidence.",
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["ai_investment_evidence"],
+        reviewer_notes="AI investment evidence is cross-checked against filings and commentary.",
+        methodology_trace=(
+            "Separate AI investment from general operating spend where possible, "
+            "and preserve source-level lineage for proxy metrics."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="infrastructure_investment_evidence",
+        title="Infrastructure Investment Evidence",
+        description=(
+            "Validates accelerator, networking, data center, and AI infrastructure "
+            "investment signals."
+        ),
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["infrastructure_investment_evidence"],
+        reviewer_notes=(
+            "Infrastructure evidence is tracked separately because NVIDIA is a core "
+            "AI infrastructure supplier."
+        ),
+        methodology_trace=(
+            "Map infrastructure evidence to AI economics only when the source connects "
+            "capacity, accelerator, networking, or data center investment to AI demand."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="earnings_call_evidence",
+        title="Earnings Call Evidence",
+        description="Captures management commentary and call evidence used for cross verification.",
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["earnings_call_evidence"],
+        reviewer_notes="Earnings call evidence is approved when attributable and dated.",
+        methodology_trace=(
+            "Use earnings calls for management commentary and cross-verification, "
+            "not as standalone audited financial proof."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="investor_presentation_evidence",
+        title="Investor Presentation Evidence",
+        description="Tracks investor presentation evidence used to explain AI economics claims.",
+        required_source_types=NVIDIA_SECTION_SOURCE_MAP["investor_presentation_evidence"],
+        reviewer_notes="Investor presentation evidence is approved as Tier 2 source support.",
+        methodology_trace=(
+            "Use investor presentations for traceable company statements and reconcile "
+            "them back to filings, annual reports, or earnings calls where possible."
+        ),
+    ),
+]
+
 
 def ensure_microsoft_validation_workspace(
     db: Session,
@@ -198,6 +281,57 @@ def ensure_microsoft_validation_workspace(
     return workspace
 
 
+def ensure_nvidia_validation_workspace(
+    db: Session,
+    reviewer_user_id: str | None = None,
+) -> CompanyValidationWorkspace:
+    company = db.scalar(select(Company).where(Company.slug == NVIDIA_WORKSPACE_SLUG))
+    if not company:
+        raise ValueError("NVIDIA company seed record is required.")
+    validation = ensure_company_validation(db, company)
+    workspace = db.scalar(
+        select(CompanyValidationWorkspace).where(
+            CompanyValidationWorkspace.slug == NVIDIA_WORKSPACE_SLUG
+        )
+    )
+    if not workspace:
+        workspace = CompanyValidationWorkspace(
+            company_id=company.id,
+            validation_id=validation.id,
+            slug=NVIDIA_WORKSPACE_SLUG,
+            status="under_review",
+            methodology_version="gold-standard-v1",
+            reviewer_notes="Gold standard NVIDIA validation workspace initialized for V1 beta.",
+            methodology_trace=company_workspace_methodology_trace("NVIDIA"),
+            report_path=NVIDIA_REPORT_PATH,
+        )
+        db.add(workspace)
+        db.flush()
+    else:
+        workspace.company_id = company.id
+        workspace.validation_id = validation.id
+        workspace.methodology_trace = company_workspace_methodology_trace("NVIDIA")
+        workspace.report_path = NVIDIA_REPORT_PATH
+
+    for spec in NVIDIA_VALIDATION_SECTIONS:
+        ensure_workspace_section(db, workspace, validation, spec, reviewer_user_id)
+    recalculate_workspace_scores(workspace)
+    if workspace.evidence_coverage_score >= 100 and workspace.openvals_validation_score > 0:
+        workspace.status = "gold_standard"
+        workspace.reviewer_notes = (
+            "NVIDIA is Gold Standard Company #2. All required evidence sections "
+            "are approved, lineage-backed, scored, and methodology-traceable."
+        )
+        if reviewer_user_id:
+            approve_validation(
+                validation,
+                reviewer_notes=workspace.reviewer_notes,
+                actor_user_id=reviewer_user_id,
+            )
+    workspace.exported_at = datetime.now(UTC)
+    return workspace
+
+
 def ensure_workspace_section(
     db: Session,
     workspace: CompanyValidationWorkspace,
@@ -232,7 +366,7 @@ def ensure_workspace_section(
         section.reviewer_notes = spec.reviewer_notes
         section.methodology_trace = spec.methodology_trace
 
-    sources = microsoft_sources_for_section(db, spec.required_source_types)
+    sources = workspace_sources_for_section(db, workspace.slug, spec.required_source_types)
     for source in sources:
         attach_source_evidence(
             db,
@@ -352,15 +486,28 @@ def recalculate_section_score(section: CompanyValidationWorkspaceSection) -> Non
 def microsoft_validation_report_payload(
     workspace: CompanyValidationWorkspace,
 ) -> dict[str, object]:
+    return gold_standard_validation_report_payload(workspace, rank=1)
+
+
+def nvidia_validation_report_payload(
+    workspace: CompanyValidationWorkspace,
+) -> dict[str, object]:
+    return gold_standard_validation_report_payload(workspace, rank=2)
+
+
+def gold_standard_validation_report_payload(
+    workspace: CompanyValidationWorkspace,
+    rank: int,
+) -> dict[str, object]:
     sections = [workspace_section_payload(section) for section in sorted_sections(workspace)]
     return {
         "id": workspace.id,
         "company": workspace.company.name,
         "company_slug": workspace.company.slug,
         "status": workspace.status,
-        "gold_standard_rank": 1 if workspace.status == "gold_standard" else None,
+        "gold_standard_rank": rank if workspace.status == "gold_standard" else None,
         "gold_standard_label": (
-            "Gold Standard Company #1" if workspace.status == "gold_standard" else None
+            f"Gold Standard Company #{rank}" if workspace.status == "gold_standard" else None
         ),
         "report_path": workspace.report_path,
         "methodology_version": workspace.methodology_version,
@@ -429,13 +576,48 @@ def source_payload(source: Source) -> dict[str, object]:
 
 
 def microsoft_sources_for_section(db: Session, source_types: list[str]) -> list[Source]:
+    return workspace_sources_for_section(db, MICROSOFT_WORKSPACE_SLUG, source_types)
+
+
+def workspace_sources_for_section(
+    db: Session, workspace_slug: str, source_types: list[str]
+) -> list[Source]:
+    if workspace_slug == NVIDIA_WORKSPACE_SLUG:
+        return nvidia_sources_for_section(db, source_types)
     sources = db.scalars(
         select(Source).where(
-            Source.publisher.in_(["SEC EDGAR", "Microsoft Investor Relations"]),
+            Source.publisher.in_(
+                ["SEC EDGAR", "Microsoft Investor Relations", "NVIDIA Investor Relations"]
+            ),
             Source.source_type.in_(source_types),
         )
     ).all()
-    return sorted(sources, key=lambda source: (source_tier(source.source_type), source.title))
+    return sorted(
+        [
+            source
+            for source in sources
+            if "microsoft" in source.title.lower()
+            or source.publisher == "Microsoft Investor Relations"
+        ],
+        key=lambda source: (source_tier(source.source_type), source.title),
+    )
+
+
+def nvidia_sources_for_section(db: Session, source_types: list[str]) -> list[Source]:
+    sources = db.scalars(
+        select(Source).where(
+            Source.publisher.in_(["SEC EDGAR", "NVIDIA Investor Relations"]),
+            Source.source_type.in_(source_types),
+        )
+    ).all()
+    return sorted(
+        [
+            source
+            for source in sources
+            if "nvidia" in source.title.lower() or source.publisher == "NVIDIA Investor Relations"
+        ],
+        key=lambda source: (source_tier(source.source_type), source.title),
+    )
 
 
 def source_lineage(source: Source, section_key: str) -> dict[str, object]:
@@ -479,8 +661,12 @@ def sorted_sections(
 
 
 def workspace_methodology_trace() -> str:
+    return company_workspace_methodology_trace("Microsoft")
+
+
+def company_workspace_methodology_trace(company_name: str) -> str:
     return (
-        "Gold Standard v1 validates Microsoft through six required evidence sections. "
+        f"Gold Standard v1 validates {company_name} through six required evidence sections. "
         "Each section stores source lineage, reviewer notes, approval status, and "
         "methodology traceability. Workspace coverage is the average section "
         "coverage. Workspace OpenVals score is the average section score, where "

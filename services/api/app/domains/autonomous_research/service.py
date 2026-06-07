@@ -28,6 +28,7 @@ from app.domains.sources.credibility import source_credibility_score
 
 PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
 MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
+GOLD_STANDARD_COMPANY_RANKS = {"microsoft": 1, "nvidia": 2}
 GOLD_STANDARD_METRIC_KEYS = {
     "adoption",
     "ai_revenue",
@@ -221,10 +222,25 @@ def run_microsoft_pilot_validation(
     db: Session,
     reviewer_user_id: str,
 ) -> dict[str, object]:
+    return run_company_gold_standard_validation(db, "microsoft", reviewer_user_id)
+
+
+def run_nvidia_gold_standard_validation(
+    db: Session,
+    reviewer_user_id: str,
+) -> dict[str, object]:
+    return run_company_gold_standard_validation(db, "nvidia", reviewer_user_id)
+
+
+def run_company_gold_standard_validation(
+    db: Session,
+    company_slug: str,
+    reviewer_user_id: str,
+) -> dict[str, object]:
     run_research_agent(db)
     run_validation_agent(db)
     run_approval_agent(db)
-    records = microsoft_evidence_records(db)
+    records = company_evidence_records(db, company_slug)
     approved_count = 0
     for record in records:
         if record.status in {PUBLISHED, REJECTED}:
@@ -235,30 +251,33 @@ def run_microsoft_pilot_validation(
             record,
             reviewer_user_id=reviewer_user_id,
             notes=(
-                "Approved in the Microsoft end-to-end validation pilot after Research, "
+                f"Approved in the {record.company.name} Gold Standard validation after Research, "
                 "Validation, Confidence, Evidence Coverage, and OpenVals Score checks."
             ),
         )
         write_agent_audit(
             db,
-            action="microsoft_pilot.approved",
+            action=f"{company_slug}_gold_standard.approved",
             record=record,
-            metadata={"pilot": "microsoft_end_to_end_validation"},
+            metadata={"gold_standard_company": company_slug},
         )
         approved_count += 1
     published = 0
-    for record in microsoft_evidence_records(db):
+    for record in company_evidence_records(db, company_slug):
         if record.status == APPROVED:
             publish_evidence_record(db, record)
             published += 1
+    final_records = company_evidence_records(db, company_slug)
+    rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
+    company_name = final_records[0].company.name if final_records else company_slug.title()
     return {
-        "company": "Microsoft",
-        "status": microsoft_gold_standard_status(microsoft_evidence_records(db)),
-        "gold_standard_rank": 1,
-        "gold_standard_label": "Gold Standard Company #1",
+        "company": company_name,
+        "status": gold_standard_status(final_records),
+        "gold_standard_rank": rank,
+        "gold_standard_label": f"Gold Standard Company #{rank}" if rank else None,
         "approved_count": approved_count,
         "published_count": published,
-        "records": [evidence_record_payload(record) for record in microsoft_evidence_records(db)],
+        "records": [evidence_record_payload(record) for record in final_records],
     }
 
 
@@ -435,21 +454,21 @@ def evidence_record_payload(record: AutonomousEvidenceRecord) -> dict[str, objec
 def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
     records = company_evidence_records(db, company_slug)
     metrics = trust_center_payload(records)
-    is_microsoft = company_slug == MICROSOFT_PILOT_COMPANY_SLUG
+    rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
-        "status": microsoft_gold_standard_status(records)
-        if is_microsoft
+        "status": gold_standard_status(records)
+        if rank
         else "fully_validated"
         if records and all(record.status == PUBLISHED for record in records)
         else "in_progress",
         "gold_standard_rank": (
-            1 if is_microsoft and microsoft_gold_standard_complete(records) else None
+            rank if rank and gold_standard_complete(records) else None
         ),
         "gold_standard_label": (
-            "Gold Standard Company #1"
-            if is_microsoft and microsoft_gold_standard_complete(records)
+            f"Gold Standard Company #{rank}"
+            if rank and gold_standard_complete(records)
             else None
         ),
         "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
@@ -463,16 +482,16 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
     score = average(
         [float(record.openvals_score) for record in records if record.status == PUBLISHED]
     )
-    is_microsoft = company_slug == MICROSOFT_PILOT_COMPANY_SLUG
+    rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
         "gold_standard_rank": (
-            1 if is_microsoft and microsoft_gold_standard_complete(records) else None
+            rank if rank and gold_standard_complete(records) else None
         ),
         "gold_standard_label": (
-            "Gold Standard Company #1"
-            if is_microsoft and microsoft_gold_standard_complete(records)
+            f"Gold Standard Company #{rank}"
+            if rank and gold_standard_complete(records)
             else None
         ),
         "openvals_score": score,
@@ -546,6 +565,10 @@ def phase_1_metric_definitions(db: Session) -> list[MetricDefinition]:
 
 def microsoft_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
     return company_evidence_records(db, MICROSOFT_PILOT_COMPANY_SLUG)
+
+
+def nvidia_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
+    return company_evidence_records(db, "nvidia")
 
 
 def company_evidence_records(db: Session, company_slug: str) -> list[AutonomousEvidenceRecord]:
@@ -626,11 +649,11 @@ def classification_for_source(metric_key: str, source_type: str) -> str:
     return "Estimated"
 
 
-def microsoft_gold_standard_status(records: list[AutonomousEvidenceRecord]) -> str:
-    return "gold_standard" if microsoft_gold_standard_complete(records) else "in_progress"
+def gold_standard_status(records: list[AutonomousEvidenceRecord]) -> str:
+    return "gold_standard" if gold_standard_complete(records) else "in_progress"
 
 
-def microsoft_gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
+def gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
     published_keys = {
         record.metric_definition.key
         for record in records

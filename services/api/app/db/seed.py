@@ -23,6 +23,7 @@ from app.db.session import SessionLocal
 from app.domains.autonomous_research.service import (
     run_approval_agent,
     run_microsoft_pilot_validation,
+    run_nvidia_gold_standard_validation,
     run_research_agent,
     run_validation_agent,
 )
@@ -30,6 +31,7 @@ from app.domains.confidence.service import score_metric_confidence, source_relia
 from app.domains.identity.api_keys import hash_api_key
 from app.domains.microsoft_validation.service import (
     ensure_microsoft_validation_workspace,
+    ensure_nvidia_validation_workspace,
     write_workspace_audit_log,
 )
 from app.domains.research.service import (
@@ -377,6 +379,7 @@ def seed_database(db: Session) -> None:
         )
 
     microsoft_workspace = ensure_microsoft_validation_workspace(db, admin.id)
+    nvidia_workspace = ensure_nvidia_validation_workspace(db, admin.id)
     write_workspace_audit_log(
         db,
         actor_user_id=admin.id,
@@ -386,6 +389,17 @@ def seed_database(db: Session) -> None:
             "company": "Microsoft",
             "report_path": microsoft_workspace.report_path,
             "methodology_version": microsoft_workspace.methodology_version,
+        },
+    )
+    write_workspace_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="nvidia_validation.workspace_seeded",
+        workspace=nvidia_workspace,
+        metadata={
+            "company": "NVIDIA",
+            "report_path": nvidia_workspace.report_path,
+            "methodology_version": nvidia_workspace.methodology_version,
         },
     )
 
@@ -484,6 +498,7 @@ def seed_database(db: Session) -> None:
     run_validation_agent(db)
     run_approval_agent(db)
     run_microsoft_pilot_validation(db, admin.id)
+    run_nvidia_gold_standard_validation(db, admin.id)
 
     db.add(admin)
     db.commit()

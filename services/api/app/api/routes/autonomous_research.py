@@ -13,10 +13,12 @@ from app.domains.autonomous_research.service import (
     company_pilot_payload,
     evidence_record_payload,
     microsoft_evidence_records,
+    nvidia_evidence_records,
     reject_evidence_record,
     request_additional_evidence,
     run_approval_agent,
     run_microsoft_pilot_validation,
+    run_nvidia_gold_standard_validation,
     run_publisher_agent,
     run_research_agent,
     run_validation_agent,
@@ -106,6 +108,44 @@ def microsoft_trust_report(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     return company_pilot_payload(db, "microsoft")
+
+
+@router.get("/companies/nvidia/evidence-timeline")
+def nvidia_evidence_timeline(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = nvidia_evidence_records(db)
+    return {"items": [evidence_record_payload(record) for record in records], "next_cursor": None}
+
+
+@router.get("/companies/nvidia/source-lineage")
+def nvidia_source_lineage(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = [record for record in nvidia_evidence_records(db) if record.status == PUBLISHED]
+    return {
+        "company": "NVIDIA",
+        "items": [evidence_record_payload(record)["lineage"] for record in records],
+        "next_cursor": None,
+    }
+
+
+@router.get("/companies/nvidia/openvals-score")
+def nvidia_openvals_score(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_openvals_score_payload(db, "nvidia")
+
+
+@router.get("/companies/nvidia/trust-report")
+def nvidia_trust_report(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_pilot_payload(db, "nvidia")
 
 
 @router.get("/research-queue")
@@ -220,6 +260,16 @@ def admin_run_microsoft_pilot_validation(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     result = run_microsoft_pilot_validation(db, reviewer_user_id=claims["sub"])
+    db.commit()
+    return result
+
+
+@router.post("/admin/nvidia-gold-standard/run")
+def admin_run_nvidia_gold_standard_validation(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    result = run_nvidia_gold_standard_validation(db, reviewer_user_id=claims["sub"])
     db.commit()
     return result
 

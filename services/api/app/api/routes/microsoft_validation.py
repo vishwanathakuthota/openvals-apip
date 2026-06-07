@@ -6,8 +6,11 @@ from app.api.deps import get_db, require_api_key
 from app.db.models import CompanyValidationWorkspace
 from app.domains.microsoft_validation.service import (
     MICROSOFT_WORKSPACE_SLUG,
+    NVIDIA_WORKSPACE_SLUG,
     ensure_microsoft_validation_workspace,
+    ensure_nvidia_validation_workspace,
     microsoft_validation_report_payload,
+    nvidia_validation_report_payload,
 )
 
 router = APIRouter()
@@ -35,7 +38,7 @@ def get_company_validation_workspace(
     _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    if company_slug != MICROSOFT_WORKSPACE_SLUG:
+    if company_slug not in {MICROSOFT_WORKSPACE_SLUG, NVIDIA_WORKSPACE_SLUG}:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "validation_workspace_not_found"},
@@ -43,7 +46,28 @@ def get_company_validation_workspace(
     workspace = db.scalar(
         select(CompanyValidationWorkspace).where(CompanyValidationWorkspace.slug == company_slug)
     )
-    if not workspace:
+    if not workspace and company_slug == MICROSOFT_WORKSPACE_SLUG:
         workspace = ensure_microsoft_validation_workspace(db)
         db.commit()
+    elif not workspace:
+        workspace = ensure_nvidia_validation_workspace(db)
+        db.commit()
+    if company_slug == NVIDIA_WORKSPACE_SLUG:
+        return nvidia_validation_report_payload(workspace)
     return microsoft_validation_report_payload(workspace)
+
+
+@router.get("/companies/nvidia/validation-report")
+def get_nvidia_validation_report(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    workspace = db.scalar(
+        select(CompanyValidationWorkspace).where(
+            CompanyValidationWorkspace.slug == NVIDIA_WORKSPACE_SLUG
+        )
+    )
+    if not workspace:
+        workspace = ensure_nvidia_validation_workspace(db)
+        db.commit()
+    return nvidia_validation_report_payload(workspace)
