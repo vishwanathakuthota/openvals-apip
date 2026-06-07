@@ -27,6 +27,7 @@ export default async function MicrosoftTrustReportPage() {
           reviewed, approved, published, and linked to public lineage.
         </p>
         <div className="flex flex-wrap gap-2">
+          {report.gold_standard_label ? <Badge>{report.gold_standard_label}</Badge> : null}
           {report.workflow.split(" -> ").map((step) => (
             <Badge key={step}>{step}</Badge>
           ))}

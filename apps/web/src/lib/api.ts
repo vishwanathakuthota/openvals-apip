@@ -100,7 +100,9 @@ export function fetchMicrosoftValidationReport() {
     id: "microsoft-validation-fallback",
     company: "Microsoft",
     company_slug: "microsoft",
-    status: "under_review",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
     report_path: "/companies/microsoft/validation-report",
     methodology_version: "gold-standard-v1",
     methodology_trace:
@@ -152,6 +154,8 @@ export function fetchMicrosoftOpenValsScore() {
   return apiFetch<CompanyOpenValsScore>("companies/microsoft/openvals-score", {
     company: "Microsoft",
     company_slug: "microsoft",
+    gold_standard_rank: null,
+    gold_standard_label: null,
     openvals_score: 0,
     classification: "Weak",
     published_records: 0,
@@ -165,6 +169,11 @@ export function fetchMicrosoftOpenValsScore() {
 
 export function fetchMicrosoftTrustReport() {
   return apiFetch<TrustCenter>("companies/microsoft/trust-report", {
+    company: "Microsoft",
+    company_slug: "microsoft",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
     workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
     auto_publish_enabled: false,
     metrics: {

@@ -16,6 +16,7 @@ from app.db.models import (
 )
 from app.domains.sources.credibility import source_credibility_score, source_tier
 from app.domains.validation.service import (
+    approve_validation,
     attach_source_evidence,
     ensure_company_validation,
     ensure_source_review,
@@ -181,6 +182,18 @@ def ensure_microsoft_validation_workspace(
     for spec in MICROSOFT_VALIDATION_SECTIONS:
         ensure_workspace_section(db, workspace, validation, spec, reviewer_user_id)
     recalculate_workspace_scores(workspace)
+    if workspace.evidence_coverage_score >= 100 and workspace.openvals_validation_score > 0:
+        workspace.status = "gold_standard"
+        workspace.reviewer_notes = (
+            "Microsoft is Gold Standard Company #1. All required evidence sections "
+            "are approved, lineage-backed, scored, and methodology-traceable."
+        )
+        if reviewer_user_id:
+            approve_validation(
+                validation,
+                reviewer_notes=workspace.reviewer_notes,
+                actor_user_id=reviewer_user_id,
+            )
     workspace.exported_at = datetime.now(UTC)
     return workspace
 
@@ -345,6 +358,10 @@ def microsoft_validation_report_payload(
         "company": workspace.company.name,
         "company_slug": workspace.company.slug,
         "status": workspace.status,
+        "gold_standard_rank": 1 if workspace.status == "gold_standard" else None,
+        "gold_standard_label": (
+            "Gold Standard Company #1" if workspace.status == "gold_standard" else None
+        ),
         "report_path": workspace.report_path,
         "methodology_version": workspace.methodology_version,
         "methodology_trace": workspace.methodology_trace,

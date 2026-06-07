@@ -174,6 +174,9 @@ def test_microsoft_gold_standard_validation_report_returns_required_sections():
     assert response.status_code == 200
     payload = response.json()
     assert payload["company"] == "Microsoft"
+    assert payload["status"] == "gold_standard"
+    assert payload["gold_standard_rank"] == 1
+    assert payload["gold_standard_label"] == "Gold Standard Company #1"
     assert payload["report_path"] == "/companies/microsoft/validation-report"
     assert payload["methodology_version"] == "gold-standard-v1"
     assert payload["evidence_coverage_score"] == 100.0
@@ -287,10 +290,63 @@ def test_microsoft_pilot_artifact_endpoints_are_generated():
     assert timeline.json()["items"]
     assert lineage.json()["items"]
     assert score.json()["company"] == "Microsoft"
+    assert score.json()["gold_standard_rank"] == 1
+    assert score.json()["gold_standard_label"] == "Gold Standard Company #1"
     assert score.json()["openvals_score"] > 0
-    assert score.json()["published_records"] >= 3
-    assert trust.json()["status"] == "fully_validated"
-    assert trust.json()["metrics"]["published_records"] >= 3
+    assert score.json()["published_records"] == 6
+    assert trust.json()["status"] == "gold_standard"
+    assert trust.json()["gold_standard_rank"] == 1
+    assert trust.json()["gold_standard_label"] == "Gold Standard Company #1"
+    assert trust.json()["metrics"]["published_records"] == 6
+
+
+def test_microsoft_gold_standard_metrics_have_evidence_lineage_and_scores():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    companies = client.get("/api/v1/companies", headers=headers).json()["items"]
+    microsoft = next(item for item in companies if item["slug"] == "microsoft")
+    response = client.get(
+        f"/api/v1/metrics/search?entity_type=company&entity_id={microsoft['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    metrics = {
+        item["metric_key"]: item
+        for item in response.json()["items"]
+        if item["entity_id"] == microsoft["id"]
+    }
+    assert set(metrics) == {
+        "adoption",
+        "ai_revenue",
+        "ai_spend",
+        "gross_margin",
+        "revenue_growth",
+        "roi",
+    }
+    for metric in metrics.values():
+        assert metric["value"] is not None
+        assert metric["confidence_score"] > 0
+        assert metric["confidence_label"]
+        assert metric["source_count"] >= 1
+        assert metric["last_updated"]
+        assert metric["methodology_note"]
+        assert metric["coverage_score"] > 0
+        assert metric["coverage"]["source_count"] >= 1
+        assert metric["openvals_score"] > 0
+        assert metric["openvals_classification"]
+        assert metric["evidence_classification"] == "Validated"
+        assert metric["validation_status"] == "Published"
+        assert metric["sources"]
+        assert metric["source_lineage"]
+        for lineage in metric["source_lineage"]:
+            assert lineage["source_url"].startswith("https://")
+            assert lineage["confidence"] > 0
+            assert lineage["evidence_coverage"] > 0
+            assert lineage["reviewer"] == "APIP Admin"
+            assert lineage["approval_date"]
+            assert lineage["openvals_score"] > 0
 
 
 def test_admin_autonomous_review_and_publisher_flow_updates_public_lineage():

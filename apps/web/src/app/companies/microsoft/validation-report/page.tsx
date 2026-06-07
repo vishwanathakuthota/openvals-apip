@@ -28,6 +28,7 @@ export default async function MicrosoftValidationReportPage() {
           <p className="text-xs font-semibold uppercase text-muted-foreground">Gold Standard Validation</p>
           <Badge>{report.methodology_version}</Badge>
           <Badge>{report.status.replace("_", " ")}</Badge>
+          {report.gold_standard_label ? <Badge>{report.gold_standard_label}</Badge> : null}
         </div>
         <div className="grid gap-2">
           <h1 className="text-4xl font-semibold">Microsoft Validation Report</h1>
@@ -78,6 +79,9 @@ export default async function MicrosoftValidationReportPage() {
           <CardContent className="grid gap-4">
             <Progress value={report.openvals_validation_score} />
             <p className="text-sm text-muted-foreground">{report.reviewer_notes}</p>
+            {report.gold_standard_rank ? (
+              <p className="text-sm font-medium">Gold Standard rank #{report.gold_standard_rank}</p>
+            ) : null}
           </CardContent>
         </Card>
         <Card>

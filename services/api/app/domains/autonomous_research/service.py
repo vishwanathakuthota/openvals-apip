@@ -28,6 +28,14 @@ from app.domains.sources.credibility import source_credibility_score
 
 PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
 MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
+GOLD_STANDARD_METRIC_KEYS = {
+    "adoption",
+    "ai_revenue",
+    "ai_spend",
+    "gross_margin",
+    "revenue_growth",
+    "roi",
+}
 COLLECTED = "Collected"
 UNDER_REVIEW = "Under Review"
 APPROVED = "Approved"
@@ -38,7 +46,27 @@ EVIDENCE_CLASSIFICATIONS = {"Reported", "Estimated", "Derived", "Validated"}
 REQUIRED_EVIDENCE_EXPECTED = {
     "ai_revenue": {"sec_filing", "annual_report", "earnings_call"},
     "ai_spend": {"sec_filing", "annual_report", "earnings_call"},
+    "adoption": {"annual_report", "earnings_call", "investor_presentation"},
+    "gross_margin": {"sec_filing", "annual_report", "earnings_call"},
+    "revenue_growth": {"sec_filing", "annual_report", "earnings_call"},
     "roi": {"sec_filing", "annual_report", "earnings_call"},
+}
+COMPANY_SOURCE_MATCHERS = {
+    "google": {
+        "publishers": {"Alphabet Investor Relations"},
+        "title_terms": {"alphabet"},
+        "url_terms": {"CIK=1652044"},
+    },
+    "microsoft": {
+        "publishers": {"Microsoft Investor Relations"},
+        "title_terms": {"microsoft"},
+        "url_terms": {"CIK=789019"},
+    },
+    "nvidia": {
+        "publishers": {"NVIDIA Investor Relations"},
+        "title_terms": {"nvidia"},
+        "url_terms": {"CIK=1045810"},
+    },
 }
 
 
@@ -59,7 +87,9 @@ def run_research_agent(db: Session) -> AgentRunResult:
             metric = current_metric(db, company.id, metric_definition.id)
             if not metric:
                 continue
-            source = best_approved_source_for_company(db, company.slug)
+            source = best_approved_source_for_company_metric(
+                db, company.slug, metric_definition.key
+            )
             if not source or evidence_exists(db, company.id, metric_definition.id, source.id):
                 continue
             record = AutonomousEvidenceRecord(
@@ -223,7 +253,9 @@ def run_microsoft_pilot_validation(
             published += 1
     return {
         "company": "Microsoft",
-        "status": "fully_validated",
+        "status": microsoft_gold_standard_status(microsoft_evidence_records(db)),
+        "gold_standard_rank": 1,
+        "gold_standard_label": "Gold Standard Company #1",
         "approved_count": approved_count,
         "published_count": published,
         "records": [evidence_record_payload(record) for record in microsoft_evidence_records(db)],
@@ -403,12 +435,23 @@ def evidence_record_payload(record: AutonomousEvidenceRecord) -> dict[str, objec
 def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
     records = company_evidence_records(db, company_slug)
     metrics = trust_center_payload(records)
+    is_microsoft = company_slug == MICROSOFT_PILOT_COMPANY_SLUG
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
-        "status": "fully_validated"
+        "status": microsoft_gold_standard_status(records)
+        if is_microsoft
+        else "fully_validated"
         if records and all(record.status == PUBLISHED for record in records)
         else "in_progress",
+        "gold_standard_rank": (
+            1 if is_microsoft and microsoft_gold_standard_complete(records) else None
+        ),
+        "gold_standard_label": (
+            "Gold Standard Company #1"
+            if is_microsoft and microsoft_gold_standard_complete(records)
+            else None
+        ),
         "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
         "metrics": metrics,
         "items": [evidence_record_payload(record) for record in records],
@@ -420,9 +463,18 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
     score = average(
         [float(record.openvals_score) for record in records if record.status == PUBLISHED]
     )
+    is_microsoft = company_slug == MICROSOFT_PILOT_COMPANY_SLUG
     return {
         "company": records[0].company.name if records else company_slug.title(),
         "company_slug": company_slug,
+        "gold_standard_rank": (
+            1 if is_microsoft and microsoft_gold_standard_complete(records) else None
+        ),
+        "gold_standard_label": (
+            "Gold Standard Company #1"
+            if is_microsoft and microsoft_gold_standard_complete(records)
+            else None
+        ),
         "openvals_score": score,
         "classification": openvals_classification(score),
         "published_records": len([record for record in records if record.status == PUBLISHED]),
@@ -487,7 +539,7 @@ def public_lineage(record: AutonomousEvidenceRecord) -> dict[str, object]:
 def phase_1_metric_definitions(db: Session) -> list[MetricDefinition]:
     return db.scalars(
         select(MetricDefinition)
-        .where(MetricDefinition.key.in_(["ai_revenue", "ai_spend", "roi"]))
+        .where(MetricDefinition.key.in_(GOLD_STANDARD_METRIC_KEYS))
         .order_by(MetricDefinition.key)
     ).all()
 
@@ -517,36 +569,45 @@ def current_metric(db: Session, company_id: str, definition_id: str) -> MetricVa
 
 
 def best_approved_source_for_company(db: Session, company_slug: str) -> Source | None:
-    publisher = {
-        "google": "Alphabet Investor Relations",
-        "microsoft": "Microsoft Investor Relations",
-        "nvidia": "NVIDIA Investor Relations",
-    }.get(company_slug)
-    if not publisher:
+    matcher = COMPANY_SOURCE_MATCHERS.get(company_slug)
+    if not matcher:
         return None
-    return db.scalar(
+    sources = db.scalars(
         select(Source)
-        .where(Source.publisher == publisher, Source.status == "approved")
+        .where(Source.status == "approved")
         .order_by(Source.reliability_score.desc(), Source.published_at.desc())
-    )
+    ).all()
+    return next((source for source in sources if source_matches_company(source, matcher)), None)
+
+
+def best_approved_source_for_company_metric(
+    db: Session, company_slug: str, metric_key: str
+) -> Source | None:
+    sources = sources_for_company_metric(db, company_slug, metric_key)
+    if not sources:
+        return best_approved_source_for_company(db, company_slug)
+    return sorted(
+        sources,
+        key=lambda source: (
+            source.reliability_score,
+            source.published_at or datetime.min.replace(tzinfo=UTC),
+        ),
+        reverse=True,
+    )[0]
 
 
 def sources_for_company_metric(db: Session, company_slug: str, metric_key: str) -> list[Source]:
-    publisher = {
-        "google": "Alphabet Investor Relations",
-        "microsoft": "Microsoft Investor Relations",
-        "nvidia": "NVIDIA Investor Relations",
-    }.get(company_slug)
-    if not publisher:
+    matcher = COMPANY_SOURCE_MATCHERS.get(company_slug)
+    if not matcher:
         return []
     expected_types = REQUIRED_EVIDENCE_EXPECTED.get(metric_key, set())
-    return db.scalars(
+    sources = db.scalars(
         select(Source).where(
-            Source.publisher == publisher,
             Source.status == "approved",
             Source.source_type.in_(expected_types),
         )
     ).all()
+    return [source for source in sources if source_matches_company(source, matcher)]
 
 
 def evidence_coverage_for_metric(metric_key: str, sources: list[Source]) -> float:
@@ -558,11 +619,42 @@ def evidence_coverage_for_metric(metric_key: str, sources: list[Source]) -> floa
 
 
 def classification_for_source(metric_key: str, source_type: str) -> str:
-    if metric_key == "roi":
+    if metric_key in {"gross_margin", "revenue_growth", "roi"}:
         return "Derived"
     if source_type in {"sec_filing", "annual_report", "earnings_call", "quarterly_report"}:
         return "Reported"
     return "Estimated"
+
+
+def microsoft_gold_standard_status(records: list[AutonomousEvidenceRecord]) -> str:
+    return "gold_standard" if microsoft_gold_standard_complete(records) else "in_progress"
+
+
+def microsoft_gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
+    published_keys = {
+        record.metric_definition.key
+        for record in records
+        if record.status == PUBLISHED
+        and record.evidence_classification == "Validated"
+        and float(record.confidence_score) > 0
+        and float(record.evidence_coverage_score) > 0
+        and float(record.openvals_score) > 0
+        and record.published_at
+        and record.approved_at
+        and record.source_url
+    }
+    return GOLD_STANDARD_METRIC_KEYS <= published_keys
+
+
+def source_matches_company(source: Source, matcher: dict[str, set[str]]) -> bool:
+    publisher = source.publisher or ""
+    title = source.title.lower()
+    url = source.url or ""
+    return (
+        publisher in matcher["publishers"]
+        or any(term in title for term in matcher["title_terms"])
+        or any(term in url for term in matcher["url_terms"])
+    )
 
 
 def evidence_exists(db: Session, company_id: str, definition_id: str, source_id: str) -> bool:

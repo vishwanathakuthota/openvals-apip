@@ -17,6 +17,11 @@ export default async function MicrosoftOpenValsScorePage() {
       <header className="grid gap-2 border-b border-border pb-6">
         <p className="text-xs font-semibold uppercase text-muted-foreground">Microsoft Pilot</p>
         <h1 className="text-4xl font-semibold">OpenVals Score</h1>
+        {score.gold_standard_label ? (
+          <div>
+            <Badge>{score.gold_standard_label}</Badge>
+          </div>
+        ) : null}
         <p className="max-w-3xl text-muted-foreground">{score.methodology_note}</p>
       </header>
       <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
