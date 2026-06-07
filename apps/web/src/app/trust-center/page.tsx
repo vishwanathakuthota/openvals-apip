@@ -51,24 +51,85 @@ export default async function TrustCenterPage() {
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Average Confidence</CardTitle>
+            <CardTitle>OpenVals Trust Index</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <Progress value={trustCenter.metrics.average_confidence} />
-            <p className="text-sm tabular-nums text-muted-foreground">
-              {trustCenter.metrics.average_confidence.toFixed(1)} / 100
-            </p>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-4xl font-semibold tabular-nums">
+                  {trustCenter.trust_index?.trust_index.toFixed(1) ?? "0.0"}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Badge>{trustCenter.trust_index?.trust_rating ?? "Low Trust"}</Badge>
+                  <Badge>
+                    {trustCenter.trust_index?.trust_classification ?? "Insufficient Evidence"}
+                  </Badge>
+                </div>
+              </div>
+              <p className="text-right text-sm text-muted-foreground">
+                {trustCenter.trust_index?.published_record_count ?? 0} published records
+              </p>
+            </div>
+            <Progress value={trustCenter.trust_index?.trust_index ?? 0} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Average OpenVals Score</CardTitle>
+            <CardTitle>Trust Trend</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <Progress value={trustCenter.metrics.average_openvals_score} />
-            <p className="text-sm tabular-nums text-muted-foreground">
-              {trustCenter.metrics.average_openvals_score.toFixed(1)} / 100
-            </p>
+            {(trustCenter.trust_trend ?? []).slice(0, 5).map((snapshot) => (
+              <div className="grid gap-1" key={`${snapshot.entity_name}-${snapshot.snapshot_date}`}>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span>{snapshot.entity_name}</span>
+                  <span className="tabular-nums">{snapshot.trust_index.toFixed(1)}</span>
+                </div>
+                <Progress value={snapshot.trust_index} />
+              </div>
+            ))}
+            {(trustCenter.trust_trend ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No Trust Index snapshots yet.</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Trust Change Notifications</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {(trustCenter.trust_notifications ?? []).slice(0, 6).map((item) => (
+              <div className="grid gap-1 rounded-md border border-border p-3" key={item.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <strong className="text-sm">{item.entity_name}</strong>
+                  <Badge>{item.change_amount >= 0 ? "+" : ""}{item.change_amount.toFixed(1)}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{item.message}</p>
+              </div>
+            ))}
+            {(trustCenter.trust_notifications ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No Trust Index notifications yet.</p>
+            ) : null}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Trust Methodology</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm text-muted-foreground">
+            <p>{trustCenter.methodology?.formula}</p>
+            {trustCenter.trust_index ? (
+              <div className="grid gap-2">
+                {Object.entries(trustCenter.trust_index.weights).map(([label, value]) => (
+                  <div className="flex items-center justify-between gap-3" key={label}>
+                    <span className="capitalize">{label.replaceAll("_", " ")}</span>
+                    <span className="tabular-nums">{(value * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </section>

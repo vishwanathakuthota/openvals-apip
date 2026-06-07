@@ -10,7 +10,9 @@ import type {
   RealityIndexItem,
   Scoreboard,
   SourceLineage,
-  TrustCenter
+  TrustCenter,
+  TrustIndexDashboard,
+  TrustIndexItem
 } from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
@@ -91,6 +93,62 @@ export async function fetchEntity(resource: "companies" | "industries" | "countr
 export function fetchMetrics() {
   return apiFetch<CollectionResponse<MetricValue>>("metrics/search", {
     items: fallbackMetrics,
+    next_cursor: null
+  });
+}
+
+const fallbackTrustIndex: TrustIndexItem = {
+  entity_type: "global",
+  entity_id: null,
+  entity_name: "APIP Global Trust Index",
+  trust_index: 0,
+  trust_rating: "Low Trust",
+  trust_classification: "Insufficient Evidence",
+  components: {
+    confidence: 0,
+    evidence_coverage: 0,
+    transparency: 0,
+    reproducibility: 0,
+    source_quality: 0
+  },
+  weights: {
+    confidence: 0.3,
+    evidence_coverage: 0.25,
+    transparency: 0.2,
+    reproducibility: 0.15,
+    source_quality: 0.1
+  },
+  source_count: 0,
+  published_record_count: 0,
+  methodology_version: "trust-index-v1"
+};
+
+export function fetchTrustIndex() {
+  return apiFetch<TrustIndexDashboard>("trust-index", {
+    summary: fallbackTrustIndex,
+    leaderboard: [],
+    trend: [],
+    notifications: [],
+    methodology: {
+      name: "OpenVals Trust Index",
+      version: "trust-index-v1",
+      formula:
+        "30% Confidence + 25% Evidence Coverage + 20% Transparency + 15% Reproducibility + 10% Source Quality",
+      weights: fallbackTrustIndex.weights,
+      rating_scale: {
+        "90-100": "Verified / Gold Standard",
+        "80-89": "High Trust / Strong Evidence",
+        "70-79": "Trusted / Reliable",
+        "60-69": "Watchlist / Developing",
+        "0-59": "Low Trust / Insufficient Evidence"
+      }
+    }
+  });
+}
+
+export function fetchTrustLeaderboard() {
+  return apiFetch<CollectionResponse<TrustIndexItem>>("leaderboard", {
+    items: [],
     next_cursor: null
   });
 }
@@ -177,6 +235,23 @@ export function fetchTrustCenter() {
       average_confidence: 0,
       average_openvals_score: 0,
       public_lineage_records: 0
+    },
+    trust_index: fallbackTrustIndex,
+    trust_trend: [],
+    trust_notifications: [],
+    methodology: {
+      name: "OpenVals Trust Index",
+      version: "trust-index-v1",
+      formula:
+        "30% Confidence + 25% Evidence Coverage + 20% Transparency + 15% Reproducibility + 10% Source Quality",
+      weights: fallbackTrustIndex.weights,
+      rating_scale: {
+        "90-100": "Verified / Gold Standard",
+        "80-89": "High Trust / Strong Evidence",
+        "70-79": "Trusted / Reliable",
+        "60-69": "Watchlist / Developing",
+        "0-59": "Low Trust / Insufficient Evidence"
+      }
     },
     items: []
   });

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_api_key
 from app.db.models import Company
 from app.domains.metrics.repository import entity_metrics
+from app.domains.trust_index.service import company_trust_index, trust_index_payload
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ def list_companies(
     if q:
         stmt = stmt.where(Company.name.ilike(f"%{q}%"))
     items = db.scalars(stmt).all()
-    return {"items": [serialize_company(item) for item in items], "next_cursor": None}
+    return {"items": [serialize_company(item, db) for item in items], "next_cursor": None}
 
 
 @router.get("/companies/{company_id}")
@@ -32,7 +33,10 @@ def get_company(
     company = db.get(Company, company_id)
     if not company:
         raise HTTPException(status_code=404, detail={"code": "company_not_found"})
-    return {**serialize_company(company), "metrics": entity_metrics(db, "company", company_id)}
+    return {
+        **serialize_company(company, db),
+        "metrics": entity_metrics(db, "company", company_id),
+    }
 
 
 @router.get("/companies/{company_id}/metrics")
@@ -44,7 +48,8 @@ def get_company_metrics(
     return {"items": entity_metrics(db, "company", company_id)}
 
 
-def serialize_company(company: Company) -> dict[str, object]:
+def serialize_company(company: Company, db: Session | None = None) -> dict[str, object]:
+    trust_index = trust_index_payload(company_trust_index(db, company)) if db else None
     return {
         "id": company.id,
         "name": company.name,
@@ -52,4 +57,5 @@ def serialize_company(company: Company) -> dict[str, object]:
         "ticker": company.ticker,
         "website_url": company.website_url,
         "status": company.status,
+        "trust_index": trust_index,
     }

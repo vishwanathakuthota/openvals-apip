@@ -9,6 +9,11 @@ from app.domains.confidence.service import (
 )
 from app.domains.indexes.service import calculate_ai_reality_index
 from app.domains.sources.credibility import coverage_label, source_credibility_score, source_tier
+from app.domains.trust_index.service import (
+    calculate_trust_index,
+    trust_classification,
+    trust_rating,
+)
 
 
 def test_confidence_formula_matches_prd_weights():
@@ -61,6 +66,22 @@ def test_openvals_score_formula_matches_trust_model_weights():
     score = round((90 * 0.30) + (80 * 0.25) + (70 * 0.20) + (60 * 0.15) + (50 * 0.10), 2)
     assert score == 75
     assert openvals_classification(score) == "Reliable"
+
+
+def test_trust_index_formula_and_labels_match_sprint_2_methodology():
+    score = calculate_trust_index(
+        confidence=90,
+        evidence_coverage=80,
+        transparency=70,
+        reproducibility=60,
+        source_quality=50,
+    )
+
+    assert score == 75
+    assert trust_rating(score) == "Trusted"
+    assert trust_classification(score) == "Reliable"
+    assert trust_rating(92) == "Verified"
+    assert trust_classification(92) == "Gold Standard"
 
 
 def test_ai_reality_index_classification_bands_match_prd():

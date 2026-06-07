@@ -489,6 +489,44 @@ class AutonomousEvidenceRecord(TimestampMixin, Base):
     reviewer: Mapped[User | None] = relationship()
 
 
+class TrustIndexSnapshot(Base):
+    __tablename__ = "trust_index_snapshots"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    entity_type: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    entity_name: Mapped[str] = mapped_column(String(255), index=True)
+    trust_index: Mapped[float] = mapped_column(Numeric(5, 2))
+    trust_rating: Mapped[str] = mapped_column(String(80), index=True)
+    trust_classification: Mapped[str] = mapped_column(String(80), index=True)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    evidence_coverage_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    transparency_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    reproducibility_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    source_quality_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    source_count: Mapped[int] = mapped_column(Integer, default=0)
+    published_record_count: Mapped[int] = mapped_column(Integer, default=0)
+    snapshot_date: Mapped[date] = mapped_column(Date, index=True)
+    methodology_version: Mapped[str] = mapped_column(String(80), default="trust-index-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrustChangeNotification(Base):
+    __tablename__ = "trust_change_notifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    entity_type: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    entity_name: Mapped[str] = mapped_column(String(255), index=True)
+    previous_trust_index: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    current_trust_index: Mapped[float] = mapped_column(Numeric(5, 2))
+    change_amount: Mapped[float] = mapped_column(Numeric(5, 2))
+    notification_type: Mapped[str] = mapped_column(String(80), index=True)
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(40), default="unread", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class MetricSource(TimestampMixin, Base):
     __tablename__ = "metric_sources"
     __table_args__ = (
