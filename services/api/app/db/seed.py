@@ -21,6 +21,7 @@ from app.db.models import (
 )
 from app.db.session import SessionLocal
 from app.domains.autonomous_research.service import (
+    run_alphabet_gold_standard_validation,
     run_approval_agent,
     run_microsoft_pilot_validation,
     run_nvidia_gold_standard_validation,
@@ -30,6 +31,7 @@ from app.domains.autonomous_research.service import (
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.identity.api_keys import hash_api_key
 from app.domains.microsoft_validation.service import (
+    ensure_alphabet_validation_workspace,
     ensure_microsoft_validation_workspace,
     ensure_nvidia_validation_workspace,
     write_workspace_audit_log,
@@ -380,6 +382,7 @@ def seed_database(db: Session) -> None:
 
     microsoft_workspace = ensure_microsoft_validation_workspace(db, admin.id)
     nvidia_workspace = ensure_nvidia_validation_workspace(db, admin.id)
+    alphabet_workspace = ensure_alphabet_validation_workspace(db, admin.id)
     write_workspace_audit_log(
         db,
         actor_user_id=admin.id,
@@ -400,6 +403,17 @@ def seed_database(db: Session) -> None:
             "company": "NVIDIA",
             "report_path": nvidia_workspace.report_path,
             "methodology_version": nvidia_workspace.methodology_version,
+        },
+    )
+    write_workspace_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="alphabet_validation.workspace_seeded",
+        workspace=alphabet_workspace,
+        metadata={
+            "company": "Alphabet",
+            "report_path": alphabet_workspace.report_path,
+            "methodology_version": alphabet_workspace.methodology_version,
         },
     )
 
@@ -499,6 +513,7 @@ def seed_database(db: Session) -> None:
     run_approval_agent(db)
     run_microsoft_pilot_validation(db, admin.id)
     run_nvidia_gold_standard_validation(db, admin.id)
+    run_alphabet_gold_standard_validation(db, admin.id)
 
     db.add(admin)
     db.commit()

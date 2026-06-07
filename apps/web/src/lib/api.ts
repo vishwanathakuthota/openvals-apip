@@ -141,6 +141,29 @@ export function fetchNvidiaValidationReport() {
   });
 }
 
+export function fetchAlphabetValidationReport() {
+  return apiFetch<MicrosoftValidationReport>("companies/alphabet/validation-report", {
+    id: "alphabet-validation-fallback",
+    company: "Alphabet",
+    company_slug: "alphabet",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    report_path: "/companies/alphabet/validation-report",
+    methodology_version: "gold-standard-v1",
+    methodology_trace:
+      "Gold Standard v1 validates Alphabet through required evidence sections, source approval, lineage, reviewer notes, and methodology traceability.",
+    reviewer_notes: "Configure the backend API to load the live Alphabet validation workspace.",
+    evidence_coverage_score: 0,
+    openvals_validation_score: 0,
+    openvals_validation_label: "Insufficient Evidence",
+    exported_at: null,
+    last_updated: null,
+    sections: [],
+    source_lineage: []
+  });
+}
+
 export function fetchTrustCenter() {
   return apiFetch<TrustCenter>("trust-center", {
     workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
@@ -173,6 +196,13 @@ export function fetchNvidiaEvidenceTimeline() {
   );
 }
 
+export function fetchAlphabetEvidenceTimeline() {
+  return apiFetch<CollectionResponse<AutonomousEvidenceRecord>>(
+    "companies/alphabet/evidence-timeline",
+    { items: [], next_cursor: null }
+  );
+}
+
 export function fetchMicrosoftSourceLineage() {
   return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
     "companies/microsoft/source-lineage",
@@ -184,6 +214,13 @@ export function fetchNvidiaSourceLineage() {
   return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
     "companies/nvidia/source-lineage",
     { company: "NVIDIA", items: [], next_cursor: null }
+  );
+}
+
+export function fetchAlphabetSourceLineage() {
+  return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
+    "companies/alphabet/source-lineage",
+    { company: "Alphabet", items: [], next_cursor: null }
   );
 }
 
@@ -221,6 +258,23 @@ export function fetchNvidiaOpenValsScore() {
   });
 }
 
+export function fetchAlphabetOpenValsScore() {
+  return apiFetch<CompanyOpenValsScore>("companies/alphabet/openvals-score", {
+    company: "Alphabet",
+    company_slug: "alphabet",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    openvals_score: 0,
+    classification: "Weak",
+    published_records: 0,
+    evidence_coverage_score: 0,
+    confidence_score: 0,
+    source_count: 0,
+    last_updated: null,
+    methodology_note: "Alphabet Gold Standard validation data is not available yet."
+  });
+}
+
 export function fetchMicrosoftTrustReport() {
   return apiFetch<TrustCenter>("companies/microsoft/trust-report", {
     company: "Microsoft",
@@ -248,6 +302,29 @@ export function fetchNvidiaTrustReport() {
   return apiFetch<TrustCenter>("companies/nvidia/trust-report", {
     company: "NVIDIA",
     company_slug: "nvidia",
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+    auto_publish_enabled: false,
+    metrics: {
+      total_records: 0,
+      published_records: 0,
+      approved_records: 0,
+      under_review_records: 0,
+      manual_review_required: 0,
+      average_confidence: 0,
+      average_openvals_score: 0,
+      public_lineage_records: 0
+    },
+    items: []
+  });
+}
+
+export function fetchAlphabetTrustReport() {
+  return apiFetch<TrustCenter>("companies/alphabet/trust-report", {
+    company: "Alphabet",
+    company_slug: "alphabet",
     status: "in_progress",
     gold_standard_rank: null,
     gold_standard_label: null,

@@ -8,6 +8,7 @@ from app.domains.autonomous_research.service import (
     APPROVED,
     PUBLISHED,
     UNDER_REVIEW,
+    alphabet_evidence_records,
     approve_evidence_record,
     company_openvals_score_payload,
     company_pilot_payload,
@@ -16,6 +17,7 @@ from app.domains.autonomous_research.service import (
     nvidia_evidence_records,
     reject_evidence_record,
     request_additional_evidence,
+    run_alphabet_gold_standard_validation,
     run_approval_agent,
     run_microsoft_pilot_validation,
     run_nvidia_gold_standard_validation,
@@ -148,6 +150,44 @@ def nvidia_trust_report(
     return company_pilot_payload(db, "nvidia")
 
 
+@router.get("/companies/alphabet/evidence-timeline")
+def alphabet_evidence_timeline(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = alphabet_evidence_records(db)
+    return {"items": [evidence_record_payload(record) for record in records], "next_cursor": None}
+
+
+@router.get("/companies/alphabet/source-lineage")
+def alphabet_source_lineage(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = [record for record in alphabet_evidence_records(db) if record.status == PUBLISHED]
+    return {
+        "company": "Alphabet",
+        "items": [evidence_record_payload(record)["lineage"] for record in records],
+        "next_cursor": None,
+    }
+
+
+@router.get("/companies/alphabet/openvals-score")
+def alphabet_openvals_score(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_openvals_score_payload(db, "google")
+
+
+@router.get("/companies/alphabet/trust-report")
+def alphabet_trust_report(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_pilot_payload(db, "google")
+
+
 @router.get("/research-queue")
 def public_research_queue(
     _: dict[str, str] = Depends(require_api_key),
@@ -270,6 +310,16 @@ def admin_run_nvidia_gold_standard_validation(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     result = run_nvidia_gold_standard_validation(db, reviewer_user_id=claims["sub"])
+    db.commit()
+    return result
+
+
+@router.post("/admin/alphabet-gold-standard/run")
+def admin_run_alphabet_gold_standard_validation(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    result = run_alphabet_gold_standard_validation(db, reviewer_user_id=claims["sub"])
     db.commit()
     return result
 

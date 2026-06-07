@@ -28,6 +28,9 @@ MICROSOFT_WORKSPACE_SLUG = "microsoft"
 MICROSOFT_REPORT_PATH = "/companies/microsoft/validation-report"
 NVIDIA_WORKSPACE_SLUG = "nvidia"
 NVIDIA_REPORT_PATH = "/companies/nvidia/validation-report"
+ALPHABET_WORKSPACE_SLUG = "alphabet"
+ALPHABET_COMPANY_SLUG = "google"
+ALPHABET_REPORT_PATH = "/companies/alphabet/validation-report"
 MICROSOFT_SECTION_SOURCE_MAP = {
     "revenue_evidence": ["sec_filing", "annual_report"],
     "ai_revenue_evidence": ["annual_report", "earnings_call", "investor_presentation"],
@@ -41,6 +44,7 @@ MICROSOFT_SECTION_SOURCE_MAP = {
     "investor_presentation_evidence": ["investor_presentation"],
 }
 NVIDIA_SECTION_SOURCE_MAP = MICROSOFT_SECTION_SOURCE_MAP
+ALPHABET_SECTION_SOURCE_MAP = MICROSOFT_SECTION_SOURCE_MAP
 
 
 @dataclass(frozen=True)
@@ -229,6 +233,86 @@ NVIDIA_VALIDATION_SECTIONS = [
     ),
 ]
 
+ALPHABET_VALIDATION_SECTIONS = [
+    MicrosoftValidationSectionSpec(
+        key="revenue_evidence",
+        title="Revenue Evidence",
+        description="Validates Alphabet total revenue context before AI attribution.",
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["revenue_evidence"],
+        reviewer_notes="Revenue baseline uses filing and annual report evidence.",
+        methodology_trace=(
+            "Trace revenue baseline to Alphabet SEC filing registry and annual report before "
+            "using it as denominator or reconciliation context for AI-specific metrics."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="ai_revenue_evidence",
+        title="AI Revenue Evidence",
+        description=(
+            "Tracks AI-related revenue signals across Google Cloud, advertising, "
+            "Gemini, and AI product disclosures."
+        ),
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["ai_revenue_evidence"],
+        reviewer_notes=(
+            "AI revenue uses sourced Alphabet and Google AI product evidence where "
+            "audited AI segment disclosure is unavailable."
+        ),
+        methodology_trace=(
+            "Use public Alphabet evidence to map AI revenue signals to APIP metric "
+            "definitions and preserve direct disclosure gaps in methodology notes."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="ai_investment_evidence",
+        title="AI Investment Evidence",
+        description="Tracks AI investment, operating spend, and platform investment evidence.",
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["ai_investment_evidence"],
+        reviewer_notes="AI investment evidence is cross-checked against filings and commentary.",
+        methodology_trace=(
+            "Separate AI investment from general operating spend where possible, "
+            "and preserve source-level lineage for proxy metrics."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="infrastructure_investment_evidence",
+        title="Infrastructure Investment Evidence",
+        description=(
+            "Validates cloud, TPU, data center, and AI infrastructure investment signals."
+        ),
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["infrastructure_investment_evidence"],
+        reviewer_notes=(
+            "Infrastructure evidence is tracked separately because Alphabet is a major "
+            "AI infrastructure operator."
+        ),
+        methodology_trace=(
+            "Map infrastructure evidence to AI economics only when the source connects "
+            "cloud capacity, data center investment, or AI systems to demand."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="earnings_call_evidence",
+        title="Earnings Call Evidence",
+        description="Captures management commentary and call evidence used for cross verification.",
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["earnings_call_evidence"],
+        reviewer_notes="Earnings call evidence is approved when attributable and dated.",
+        methodology_trace=(
+            "Use earnings calls for management commentary and cross-verification, "
+            "not as standalone audited financial proof."
+        ),
+    ),
+    MicrosoftValidationSectionSpec(
+        key="investor_presentation_evidence",
+        title="Investor Presentation Evidence",
+        description="Tracks investor presentation evidence used to explain AI economics claims.",
+        required_source_types=ALPHABET_SECTION_SOURCE_MAP["investor_presentation_evidence"],
+        reviewer_notes="Investor presentation evidence is approved as Tier 2 source support.",
+        methodology_trace=(
+            "Use investor presentations for traceable company statements and reconcile "
+            "them back to filings, annual reports, or earnings calls where possible."
+        ),
+    ),
+]
+
 
 def ensure_microsoft_validation_workspace(
     db: Session,
@@ -320,6 +404,57 @@ def ensure_nvidia_validation_workspace(
         workspace.status = "gold_standard"
         workspace.reviewer_notes = (
             "NVIDIA is Gold Standard Company #2. All required evidence sections "
+            "are approved, lineage-backed, scored, and methodology-traceable."
+        )
+        if reviewer_user_id:
+            approve_validation(
+                validation,
+                reviewer_notes=workspace.reviewer_notes,
+                actor_user_id=reviewer_user_id,
+            )
+    workspace.exported_at = datetime.now(UTC)
+    return workspace
+
+
+def ensure_alphabet_validation_workspace(
+    db: Session,
+    reviewer_user_id: str | None = None,
+) -> CompanyValidationWorkspace:
+    company = db.scalar(select(Company).where(Company.slug == ALPHABET_COMPANY_SLUG))
+    if not company:
+        raise ValueError("Alphabet company seed record is required.")
+    validation = ensure_company_validation(db, company)
+    workspace = db.scalar(
+        select(CompanyValidationWorkspace).where(
+            CompanyValidationWorkspace.slug == ALPHABET_WORKSPACE_SLUG
+        )
+    )
+    if not workspace:
+        workspace = CompanyValidationWorkspace(
+            company_id=company.id,
+            validation_id=validation.id,
+            slug=ALPHABET_WORKSPACE_SLUG,
+            status="under_review",
+            methodology_version="gold-standard-v1",
+            reviewer_notes="Gold standard Alphabet validation workspace initialized for V1 beta.",
+            methodology_trace=company_workspace_methodology_trace("Alphabet"),
+            report_path=ALPHABET_REPORT_PATH,
+        )
+        db.add(workspace)
+        db.flush()
+    else:
+        workspace.company_id = company.id
+        workspace.validation_id = validation.id
+        workspace.methodology_trace = company_workspace_methodology_trace("Alphabet")
+        workspace.report_path = ALPHABET_REPORT_PATH
+
+    for spec in ALPHABET_VALIDATION_SECTIONS:
+        ensure_workspace_section(db, workspace, validation, spec, reviewer_user_id)
+    recalculate_workspace_scores(workspace)
+    if workspace.evidence_coverage_score >= 100 and workspace.openvals_validation_score > 0:
+        workspace.status = "gold_standard"
+        workspace.reviewer_notes = (
+            "Alphabet is Gold Standard Company #3. All required evidence sections "
             "are approved, lineage-backed, scored, and methodology-traceable."
         )
         if reviewer_user_id:
@@ -495,15 +630,24 @@ def nvidia_validation_report_payload(
     return gold_standard_validation_report_payload(workspace, rank=2)
 
 
+def alphabet_validation_report_payload(
+    workspace: CompanyValidationWorkspace,
+) -> dict[str, object]:
+    return gold_standard_validation_report_payload(workspace, rank=3)
+
+
 def gold_standard_validation_report_payload(
     workspace: CompanyValidationWorkspace,
     rank: int,
 ) -> dict[str, object]:
     sections = [workspace_section_payload(section) for section in sorted_sections(workspace)]
+    company_name = (
+        "Alphabet" if workspace.slug == ALPHABET_WORKSPACE_SLUG else workspace.company.name
+    )
     return {
         "id": workspace.id,
-        "company": workspace.company.name,
-        "company_slug": workspace.company.slug,
+        "company": company_name,
+        "company_slug": workspace.slug,
         "status": workspace.status,
         "gold_standard_rank": rank if workspace.status == "gold_standard" else None,
         "gold_standard_label": (
@@ -584,6 +728,8 @@ def workspace_sources_for_section(
 ) -> list[Source]:
     if workspace_slug == NVIDIA_WORKSPACE_SLUG:
         return nvidia_sources_for_section(db, source_types)
+    if workspace_slug == ALPHABET_WORKSPACE_SLUG:
+        return alphabet_sources_for_section(db, source_types)
     sources = db.scalars(
         select(Source).where(
             Source.publisher.in_(
@@ -615,6 +761,24 @@ def nvidia_sources_for_section(db: Session, source_types: list[str]) -> list[Sou
             source
             for source in sources
             if "nvidia" in source.title.lower() or source.publisher == "NVIDIA Investor Relations"
+        ],
+        key=lambda source: (source_tier(source.source_type), source.title),
+    )
+
+
+def alphabet_sources_for_section(db: Session, source_types: list[str]) -> list[Source]:
+    sources = db.scalars(
+        select(Source).where(
+            Source.publisher.in_(["SEC EDGAR", "Alphabet Investor Relations"]),
+            Source.source_type.in_(source_types),
+        )
+    ).all()
+    return sorted(
+        [
+            source
+            for source in sources
+            if "alphabet" in source.title.lower()
+            or source.publisher == "Alphabet Investor Relations"
         ],
         key=lambda source: (source_tier(source.source_type), source.title),
     )

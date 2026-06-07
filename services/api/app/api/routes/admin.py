@@ -1139,7 +1139,7 @@ def audit_logs(
     _: dict[str, str] = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(100)).all()
+    logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(500)).all()
     return {"items": [audit_log_payload(log) for log in logs], "next_cursor": None}
 
 

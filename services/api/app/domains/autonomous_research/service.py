@@ -28,7 +28,8 @@ from app.domains.sources.credibility import source_credibility_score
 
 PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
 MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
-GOLD_STANDARD_COMPANY_RANKS = {"microsoft": 1, "nvidia": 2}
+GOLD_STANDARD_COMPANY_RANKS = {"microsoft": 1, "nvidia": 2, "google": 3}
+GOLD_STANDARD_COMPANY_NAMES = {"google": "Alphabet"}
 GOLD_STANDARD_METRIC_KEYS = {
     "adoption",
     "ai_revenue",
@@ -232,6 +233,13 @@ def run_nvidia_gold_standard_validation(
     return run_company_gold_standard_validation(db, "nvidia", reviewer_user_id)
 
 
+def run_alphabet_gold_standard_validation(
+    db: Session,
+    reviewer_user_id: str,
+) -> dict[str, object]:
+    return run_company_gold_standard_validation(db, "google", reviewer_user_id)
+
+
 def run_company_gold_standard_validation(
     db: Session,
     company_slug: str,
@@ -269,7 +277,7 @@ def run_company_gold_standard_validation(
             published += 1
     final_records = company_evidence_records(db, company_slug)
     rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
-    company_name = final_records[0].company.name if final_records else company_slug.title()
+    company_name = gold_standard_company_name(company_slug, final_records)
     return {
         "company": company_name,
         "status": gold_standard_status(final_records),
@@ -456,8 +464,8 @@ def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
     metrics = trust_center_payload(records)
     rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
     return {
-        "company": records[0].company.name if records else company_slug.title(),
-        "company_slug": company_slug,
+        "company": gold_standard_company_name(company_slug, records),
+        "company_slug": "alphabet" if company_slug == "google" else company_slug,
         "status": gold_standard_status(records)
         if rank
         else "fully_validated"
@@ -484,8 +492,8 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
     )
     rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
     return {
-        "company": records[0].company.name if records else company_slug.title(),
-        "company_slug": company_slug,
+        "company": gold_standard_company_name(company_slug, records),
+        "company_slug": "alphabet" if company_slug == "google" else company_slug,
         "gold_standard_rank": (
             rank if rank and gold_standard_complete(records) else None
         ),
@@ -569,6 +577,10 @@ def microsoft_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
 
 def nvidia_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
     return company_evidence_records(db, "nvidia")
+
+
+def alphabet_evidence_records(db: Session) -> list[AutonomousEvidenceRecord]:
+    return company_evidence_records(db, "google")
 
 
 def company_evidence_records(db: Session, company_slug: str) -> list[AutonomousEvidenceRecord]:
@@ -667,6 +679,14 @@ def gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
         and record.source_url
     }
     return GOLD_STANDARD_METRIC_KEYS <= published_keys
+
+
+def gold_standard_company_name(
+    company_slug: str, records: list[AutonomousEvidenceRecord]
+) -> str:
+    if company_slug in GOLD_STANDARD_COMPANY_NAMES:
+        return GOLD_STANDARD_COMPANY_NAMES[company_slug]
+    return records[0].company.name if records else company_slug.title()
 
 
 def source_matches_company(source: Source, matcher: dict[str, set[str]]) -> bool:
