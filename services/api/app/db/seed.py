@@ -44,6 +44,7 @@ from app.domains.research.service import (
     write_research_audit,
 )
 from app.domains.sources.registry import BETA_COMPANIES, SOURCE_REGISTRY
+from app.domains.trust_index.service import ensure_trust_index_snapshots
 from app.domains.validation.service import (
     attach_source_evidence,
     ensure_company_validation,
@@ -514,6 +515,7 @@ def seed_database(db: Session) -> None:
     run_microsoft_pilot_validation(db, admin.id)
     run_nvidia_gold_standard_validation(db, admin.id)
     run_alphabet_gold_standard_validation(db, admin.id)
+    ensure_trust_index_snapshots(db)
 
     db.add(admin)
     db.commit()

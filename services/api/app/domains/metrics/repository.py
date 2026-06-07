@@ -12,6 +12,7 @@ from app.domains.sources.credibility import (
     source_credibility_score,
     source_tier,
 )
+from app.domains.trust_index.service import trust_classification, trust_rating
 
 
 def confidence_payload(confidence: ConfidenceScore | None) -> dict[str, object] | None:
@@ -73,6 +74,9 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
         "validation_status": metric.validation_status,
         "openvals_score": openvals_score,
         "openvals_classification": openvals_classification(openvals_score or 0),
+        "trust_index": openvals_score,
+        "trust_rating": trust_rating(openvals_score or 0),
+        "trust_classification": trust_classification(openvals_score or 0),
         "coverage_label": coverage.label,
         "coverage": {
             "score": coverage.score,

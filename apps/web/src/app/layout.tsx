@@ -7,9 +7,11 @@ import {
   Calculator,
   Code2,
   FileWarning,
+  Gauge,
   Globe2,
   Info,
   Landmark,
+  ListOrdered,
   Orbit,
   ShieldCheck
 } from "lucide-react";
@@ -56,6 +58,8 @@ const navItems = [
   { href: "/countries", label: "Countries", icon: Globe2 },
   { href: "/models", label: "Models", icon: ShieldCheck },
   { href: "/reality-index", label: "AI Reality Index", icon: Orbit },
+  { href: "/trust-index", label: "Trust Index", icon: Gauge },
+  { href: "/leaderboard", label: "Leaderboard", icon: ListOrdered },
   { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
   { href: "/calculator", label: "ROI Calculator", icon: Calculator },
   { href: "/developers", label: "Developers", icon: Code2 }
@@ -63,6 +67,7 @@ const navItems = [
 
 const footerLinks = [
   { href: "/methodology", label: "Methodology", icon: BookOpen },
+  { href: "/trust-methodology", label: "Trust Methodology", icon: Gauge },
   { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
   { href: "/about", label: "About", icon: Info },
   { href: "/disclaimer", label: "Disclaimer", icon: FileWarning },

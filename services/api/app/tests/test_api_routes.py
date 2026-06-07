@@ -260,6 +260,10 @@ def test_autonomous_research_trust_center_queues_phase_one_evidence_without_auto
     assert payload["metrics"]["total_records"] >= 18
     assert payload["metrics"]["under_review_records"] >= 0
     assert payload["metrics"]["published_records"] >= 18
+    assert payload["trust_index"]["trust_index"] > 0
+    assert payload["trust_trend"]
+    assert payload["trust_notifications"]
+    assert payload["methodology"]["version"] == "trust-index-v1"
     microsoft_records = [item for item in payload["items"] if item["company"] == "Microsoft"]
     assert microsoft_records
     assert {item["status"] for item in microsoft_records} == {"Published"}
@@ -272,6 +276,72 @@ def test_autonomous_research_trust_center_queues_phase_one_evidence_without_auto
         assert item["approved_at"]
         assert item["published_at"]
         assert item["lineage"]["source_url"].startswith("https://")
+
+
+def test_openvals_trust_index_api_returns_summary_leaderboard_trend_and_methodology():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/trust-index", headers=headers)
+    leaderboard = client.get("/api/v1/leaderboard", headers=headers)
+    methodology = client.get("/api/v1/trust-methodology", headers=headers)
+
+    assert response.status_code == 200
+    assert leaderboard.status_code == 200
+    assert methodology.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["entity_type"] == "global"
+    assert payload["summary"]["trust_index"] > 0
+    assert payload["summary"]["trust_rating"] in {
+        "Verified",
+        "High Trust",
+        "Trusted",
+        "Watchlist",
+        "Low Trust",
+    }
+    assert payload["summary"]["trust_classification"] in {
+        "Gold Standard",
+        "Strong Evidence",
+        "Reliable",
+        "Developing",
+        "Insufficient Evidence",
+    }
+    assert payload["summary"]["components"]["confidence"] > 0
+    assert payload["summary"]["weights"] == {
+        "confidence": 0.3,
+        "evidence_coverage": 0.25,
+        "transparency": 0.2,
+        "reproducibility": 0.15,
+        "source_quality": 0.1,
+    }
+    assert payload["leaderboard"]
+    assert payload["trend"]
+    assert payload["notifications"]
+    companies = {item["entity_name"] for item in leaderboard.json()["items"]}
+    assert companies >= {"Microsoft", "NVIDIA", "Alphabet"}
+    assert methodology.json()["formula"].startswith("30% Confidence")
+
+
+def test_company_and_metric_payloads_include_trust_index_fields():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    companies = client.get("/api/v1/companies", headers=headers).json()["items"]
+    microsoft = next(item for item in companies if item["slug"] == "microsoft")
+    company = client.get(f"/api/v1/companies/{microsoft['id']}", headers=headers).json()
+    metrics = client.get(
+        f"/api/v1/metrics/search?entity_type=company&entity_id={microsoft['id']}",
+        headers=headers,
+    ).json()["items"]
+
+    assert company["trust_index"]["entity_name"] == "Microsoft"
+    assert company["trust_index"]["trust_index"] > 0
+    assert company["trust_index"]["components"]["evidence_coverage"] > 0
+    assert metrics
+    for metric in metrics:
+        assert metric["trust_index"] > 0
+        assert metric["trust_rating"]
+        assert metric["trust_classification"]
 
 
 def test_microsoft_pilot_artifact_endpoints_are_generated():

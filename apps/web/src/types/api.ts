@@ -24,6 +24,9 @@ export type MetricValue = {
   validation_status?: string;
   openvals_score?: number | null;
   openvals_classification?: string;
+  trust_index?: number | null;
+  trust_rating?: string;
+  trust_classification?: string;
   coverage_label?: string;
   coverage?: {
     score: number;
@@ -84,6 +87,7 @@ export type Entity = {
   model_family?: string;
   status?: string;
   metrics?: MetricValue[];
+  trust_index?: TrustIndexItem | null;
 };
 
 export type Scoreboard = {
@@ -240,7 +244,72 @@ export type TrustCenter = {
     average_openvals_score: number;
     public_lineage_records: number;
   };
+  trust_index?: TrustIndexItem;
+  trust_trend?: TrustIndexSnapshot[];
+  trust_notifications?: TrustChangeNotification[];
+  methodology?: TrustMethodology;
   items: AutonomousEvidenceRecord[];
+};
+
+export type TrustIndexItem = {
+  entity_type: EntityType;
+  entity_id?: string | null;
+  entity_name: string;
+  trust_index: number;
+  trust_rating: string;
+  trust_classification: string;
+  components: {
+    confidence: number;
+    evidence_coverage: number;
+    transparency: number;
+    reproducibility: number;
+    source_quality: number;
+  };
+  weights: Record<string, number>;
+  source_count: number;
+  published_record_count: number;
+  methodology_version: string;
+};
+
+export type TrustIndexSnapshot = {
+  entity_type: EntityType;
+  entity_id?: string | null;
+  entity_name: string;
+  trust_index: number;
+  trust_rating: string;
+  trust_classification: string;
+  snapshot_date: string;
+  methodology_version: string;
+};
+
+export type TrustChangeNotification = {
+  id: string;
+  entity_type: EntityType;
+  entity_id?: string | null;
+  entity_name: string;
+  previous_trust_index?: number | null;
+  current_trust_index: number;
+  change_amount: number;
+  notification_type: string;
+  message: string;
+  status: string;
+  created_at?: string | null;
+};
+
+export type TrustMethodology = {
+  name: string;
+  version: string;
+  formula: string;
+  weights: Record<string, number>;
+  rating_scale: Record<string, string>;
+};
+
+export type TrustIndexDashboard = {
+  summary: TrustIndexItem;
+  leaderboard: TrustIndexItem[];
+  trend: TrustIndexSnapshot[];
+  notifications: TrustChangeNotification[];
+  methodology: TrustMethodology;
 };
 
 export type CompanyOpenValsScore = {

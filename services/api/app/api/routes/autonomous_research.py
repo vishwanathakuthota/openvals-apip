@@ -27,6 +27,11 @@ from app.domains.autonomous_research.service import (
     trust_center_payload,
     write_agent_audit,
 )
+from app.domains.trust_index.service import (
+    leaderboard_payload,
+    methodology_payload,
+    trust_index_dashboard_payload,
+)
 
 router = APIRouter()
 
@@ -37,12 +42,40 @@ def public_trust_center(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     records = list_records(db)
+    trust_index = trust_index_dashboard_payload(db)
     return {
         "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
         "auto_publish_enabled": False,
         "metrics": trust_center_payload(records),
+        "trust_index": trust_index["summary"],
+        "trust_trend": trust_index["trend"],
+        "trust_notifications": trust_index["notifications"],
+        "methodology": trust_index["methodology"],
         "items": [evidence_record_payload(record) for record in records],
     }
+
+
+@router.get("/trust-index")
+def public_trust_index(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return trust_index_dashboard_payload(db)
+
+
+@router.get("/leaderboard")
+def public_trust_leaderboard(
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return leaderboard_payload(db)
+
+
+@router.get("/trust-methodology")
+def public_trust_methodology(
+    _: dict[str, str] = Depends(require_api_key),
+) -> dict[str, object]:
+    return methodology_payload()
 
 
 @router.get("/evidence-timeline")
