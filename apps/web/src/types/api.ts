@@ -174,6 +174,8 @@ export type MicrosoftValidationReport = {
   status: string;
   gold_standard_rank?: number | null;
   gold_standard_label?: string | null;
+  validation_rank?: number | null;
+  validation_label?: string | null;
   report_path: string;
   methodology_version: string;
   methodology_trace: string;
@@ -232,6 +234,8 @@ export type TrustCenter = {
   status?: string;
   gold_standard_rank?: number | null;
   gold_standard_label?: string | null;
+  validation_rank?: number | null;
+  validation_label?: string | null;
   workflow: string;
   auto_publish_enabled: boolean;
   metrics: {
@@ -317,6 +321,8 @@ export type CompanyOpenValsScore = {
   company_slug: string;
   gold_standard_rank?: number | null;
   gold_standard_label?: string | null;
+  validation_rank?: number | null;
+  validation_label?: string | null;
   openvals_score: number;
   classification: string;
   published_records: number;

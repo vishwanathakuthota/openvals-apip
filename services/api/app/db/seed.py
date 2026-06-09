@@ -21,10 +21,8 @@ from app.db.models import (
 )
 from app.db.session import SessionLocal
 from app.domains.autonomous_research.service import (
-    run_alphabet_gold_standard_validation,
+    run_ai_economy_validation,
     run_approval_agent,
-    run_microsoft_pilot_validation,
-    run_nvidia_gold_standard_validation,
     run_research_agent,
     run_validation_agent,
 )
@@ -512,9 +510,7 @@ def seed_database(db: Session) -> None:
     run_research_agent(db)
     run_validation_agent(db)
     run_approval_agent(db)
-    run_microsoft_pilot_validation(db, admin.id)
-    run_nvidia_gold_standard_validation(db, admin.id)
-    run_alphabet_gold_standard_validation(db, admin.id)
+    run_ai_economy_validation(db, admin.id)
     ensure_trust_index_snapshots(db)
 
     db.add(admin)

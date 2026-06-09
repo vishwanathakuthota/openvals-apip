@@ -24,12 +24,36 @@ from app.domains.confidence.service import (
     freshness_score,
     methodology_transparency_score,
 )
-from app.domains.sources.credibility import source_credibility_score
+from app.domains.sources.credibility import source_credibility_score, source_tier
 
-PHASE_1_COMPANY_SLUGS = {"microsoft", "nvidia", "google"}
+AI_ECONOMY_COMPANY_SLUGS = {
+    "amazon",
+    "anthropic",
+    "google",
+    "meta",
+    "microsoft",
+    "mistral",
+    "nvidia",
+    "openai",
+    "perplexity",
+    "xai",
+}
+PRIVATE_AI_COMPANY_SLUGS = {"anthropic", "mistral", "openai", "perplexity", "xai"}
 MICROSOFT_PILOT_COMPANY_SLUG = "microsoft"
 GOLD_STANDARD_COMPANY_RANKS = {"microsoft": 1, "nvidia": 2, "google": 3}
 GOLD_STANDARD_COMPANY_NAMES = {"google": "Alphabet"}
+AI_ECONOMY_COMPANY_RANKS = {
+    "microsoft": 1,
+    "nvidia": 2,
+    "google": 3,
+    "meta": 4,
+    "amazon": 5,
+    "openai": 6,
+    "anthropic": 7,
+    "xai": 8,
+    "mistral": 9,
+    "perplexity": 10,
+}
 GOLD_STANDARD_METRIC_KEYS = {
     "adoption",
     "ai_revenue",
@@ -53,21 +77,64 @@ REQUIRED_EVIDENCE_EXPECTED = {
     "revenue_growth": {"sec_filing", "annual_report", "earnings_call"},
     "roi": {"sec_filing", "annual_report", "earnings_call"},
 }
+PRIVATE_AI_EVIDENCE_EXPECTED = {
+    "adoption": {"public_company_statement"},
+    "ai_revenue": {"public_company_statement"},
+    "ai_spend": {"public_company_statement"},
+    "gross_margin": {"public_company_statement"},
+    "revenue_growth": {"public_company_statement"},
+    "roi": {"public_company_statement"},
+}
 COMPANY_SOURCE_MATCHERS = {
+    "amazon": {
+        "publishers": {"Amazon Investor Relations"},
+        "title_terms": {"amazon"},
+        "url_terms": {"CIK=1018724", "aboutamazon"},
+    },
+    "anthropic": {
+        "publishers": {"Anthropic"},
+        "title_terms": {"anthropic"},
+        "url_terms": {"anthropic.com"},
+    },
     "google": {
         "publishers": {"Alphabet Investor Relations"},
         "title_terms": {"alphabet"},
         "url_terms": {"CIK=1652044"},
+    },
+    "meta": {
+        "publishers": {"Meta Investor Relations"},
+        "title_terms": {"meta"},
+        "url_terms": {"CIK=1326801", "atmeta"},
     },
     "microsoft": {
         "publishers": {"Microsoft Investor Relations"},
         "title_terms": {"microsoft"},
         "url_terms": {"CIK=789019"},
     },
+    "mistral": {
+        "publishers": {"Mistral AI"},
+        "title_terms": {"mistral"},
+        "url_terms": {"mistral.ai"},
+    },
     "nvidia": {
         "publishers": {"NVIDIA Investor Relations"},
         "title_terms": {"nvidia"},
         "url_terms": {"CIK=1045810"},
+    },
+    "openai": {
+        "publishers": {"OpenAI"},
+        "title_terms": {"openai"},
+        "url_terms": {"openai.com"},
+    },
+    "perplexity": {
+        "publishers": {"Perplexity"},
+        "title_terms": {"perplexity"},
+        "url_terms": {"perplexity.ai"},
+    },
+    "xai": {
+        "publishers": {"xAI"},
+        "title_terms": {"xai"},
+        "url_terms": {"x.ai"},
     },
 }
 
@@ -82,7 +149,7 @@ class AgentRunResult:
 def run_research_agent(db: Session) -> AgentRunResult:
     created = 0
     companies = db.scalars(
-        select(Company).where(Company.slug.in_(PHASE_1_COMPANY_SLUGS)).order_by(Company.name)
+        select(Company).where(Company.slug.in_(AI_ECONOMY_COMPANY_SLUGS)).order_by(Company.name)
     ).all()
     for company in companies:
         for metric_definition in phase_1_metric_definitions(db):
@@ -240,6 +307,14 @@ def run_alphabet_gold_standard_validation(
     return run_company_gold_standard_validation(db, "google", reviewer_user_id)
 
 
+def run_ai_economy_validation(db: Session, reviewer_user_id: str) -> dict[str, object]:
+    results = [
+        run_company_gold_standard_validation(db, company_slug, reviewer_user_id)
+        for company_slug in AI_ECONOMY_COMPANY_RANKS
+    ]
+    return {"items": results, "validated_company_count": len(results)}
+
+
 def run_company_gold_standard_validation(
     db: Session,
     company_slug: str,
@@ -280,9 +355,11 @@ def run_company_gold_standard_validation(
     company_name = gold_standard_company_name(company_slug, final_records)
     return {
         "company": company_name,
-        "status": gold_standard_status(final_records),
+        "status": company_validation_status(company_slug, final_records),
         "gold_standard_rank": rank,
         "gold_standard_label": f"Gold Standard Company #{rank}" if rank else None,
+        "validation_rank": AI_ECONOMY_COMPANY_RANKS.get(company_slug),
+        "validation_label": validation_label(company_slug, final_records),
         "approved_count": approved_count,
         "published_count": published,
         "records": [evidence_record_payload(record) for record in final_records],
@@ -350,7 +427,9 @@ def publish_evidence_record(db: Session, record: AutonomousEvidenceRecord) -> Me
 def validate_evidence_record(db: Session, record: AutonomousEvidenceRecord) -> None:
     source = record.source
     source_set = sources_for_company_metric(db, record.company.slug, record.metric_definition.key)
-    coverage = evidence_coverage_for_metric(record.metric_definition.key, source_set)
+    coverage = evidence_coverage_for_metric(
+        record.company.slug, record.metric_definition.key, source_set
+    )
     transparency = methodology_transparency_score(record.evidence_text)
     reproducibility = 90 if record.collection_method == "approved_source_registry" else 60
     source_quality = source_credibility_score(source.source_type, source.published_at)
@@ -466,11 +545,7 @@ def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
     return {
         "company": gold_standard_company_name(company_slug, records),
         "company_slug": "alphabet" if company_slug == "google" else company_slug,
-        "status": gold_standard_status(records)
-        if rank
-        else "fully_validated"
-        if records and all(record.status == PUBLISHED for record in records)
-        else "in_progress",
+        "status": company_validation_status(company_slug, records),
         "gold_standard_rank": (
             rank if rank and gold_standard_complete(records) else None
         ),
@@ -479,6 +554,8 @@ def company_pilot_payload(db: Session, company_slug: str) -> dict[str, object]:
             if rank and gold_standard_complete(records)
             else None
         ),
+        "validation_rank": AI_ECONOMY_COMPANY_RANKS.get(company_slug),
+        "validation_label": validation_label(company_slug, records),
         "workflow": "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
         "metrics": metrics,
         "items": [evidence_record_payload(record) for record in records],
@@ -502,6 +579,8 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
             if rank and gold_standard_complete(records)
             else None
         ),
+        "validation_rank": AI_ECONOMY_COMPANY_RANKS.get(company_slug),
+        "validation_label": validation_label(company_slug, records),
         "openvals_score": score,
         "classification": openvals_classification(score),
         "published_records": len([record for record in records if record.status == PUBLISHED]),
@@ -523,10 +602,72 @@ def company_openvals_score_payload(db: Session, company_slug: str) -> dict[str, 
         if any(record.published_at for record in records)
         else None,
         "methodology_note": (
-            "Company OpenVals Score averages published Microsoft pilot evidence records after "
+            "Company OpenVals Score averages published AI economy evidence records after "
             "confidence, coverage, transparency, reproducibility, source quality, "
             "reviewer approval, and publisher release."
         ),
+    }
+
+
+def company_validation_report_payload(db: Session, company_slug: str) -> dict[str, object]:
+    records = company_evidence_records(db, company_slug)
+    company_name = gold_standard_company_name(company_slug, records)
+    score = average(
+        [float(record.openvals_score) for record in records if record.status == PUBLISHED]
+    )
+    rank = GOLD_STANDARD_COMPANY_RANKS.get(company_slug)
+    validation_rank = AI_ECONOMY_COMPANY_RANKS.get(company_slug)
+    route_slug = "alphabet" if company_slug == "google" else company_slug
+    sections = [validation_section_payload(record) for record in records]
+    return {
+        "id": f"{company_slug}-ai-economy-validation",
+        "company": company_name,
+        "company_slug": "alphabet" if company_slug == "google" else company_slug,
+        "status": company_validation_status(company_slug, records),
+        "gold_standard_rank": rank if rank and gold_standard_complete(records) else None,
+        "gold_standard_label": (
+            f"Gold Standard Company #{rank}" if rank and gold_standard_complete(records) else None
+        ),
+        "validation_rank": validation_rank,
+        "validation_label": validation_label(company_slug, records),
+        "report_path": f"/companies/{route_slug}/validation-report",
+        "methodology_version": "ai-economy-validation-v1",
+        "methodology_trace": (
+            f"{company_name} AI Economy validation uses APIP's COLLECT -> ANALYZE -> "
+            "SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH workflow. Metrics are "
+            "published only after confidence, evidence coverage, OpenVals Score, "
+            "reviewer approval, and source lineage checks."
+        ),
+        "reviewer_notes": (
+            f"{company_name} validation is scoped to AI economy beta metrics and "
+            "source-backed evidence available in the approved source registry."
+        ),
+        "evidence_coverage_score": average(
+            [
+                float(record.evidence_coverage_score)
+                for record in records
+                if record.status == PUBLISHED
+            ]
+        ),
+        "openvals_validation_score": score,
+        "openvals_validation_label": openvals_classification(score),
+        "exported_at": max(
+            [record.published_at for record in records if record.published_at],
+            default=None,
+        ).isoformat()
+        if any(record.published_at for record in records)
+        else None,
+        "last_updated": max(
+            [record.updated_at for record in records if record.updated_at],
+            default=None,
+        ).isoformat()
+        if records
+        else None,
+        "published_records": len([record for record in records if record.status == PUBLISHED]),
+        "sections": sections,
+        "source_lineage": [
+            public_lineage(record) for record in records if record.status == PUBLISHED
+        ],
     }
 
 
@@ -635,7 +776,7 @@ def sources_for_company_metric(db: Session, company_slug: str, metric_key: str) 
     matcher = COMPANY_SOURCE_MATCHERS.get(company_slug)
     if not matcher:
         return []
-    expected_types = REQUIRED_EVIDENCE_EXPECTED.get(metric_key, set())
+    expected_types = required_evidence_types(company_slug, metric_key)
     sources = db.scalars(
         select(Source).where(
             Source.status == "approved",
@@ -645,8 +786,10 @@ def sources_for_company_metric(db: Session, company_slug: str, metric_key: str) 
     return [source for source in sources if source_matches_company(source, matcher)]
 
 
-def evidence_coverage_for_metric(metric_key: str, sources: list[Source]) -> float:
-    expected = REQUIRED_EVIDENCE_EXPECTED.get(metric_key, set())
+def evidence_coverage_for_metric(
+    company_slug: str, metric_key: str, sources: list[Source]
+) -> float:
+    expected = required_evidence_types(company_slug, metric_key)
     if not expected:
         return 0
     found = {source.source_type for source in sources}
@@ -665,6 +808,12 @@ def gold_standard_status(records: list[AutonomousEvidenceRecord]) -> str:
     return "gold_standard" if gold_standard_complete(records) else "in_progress"
 
 
+def company_validation_status(company_slug: str, records: list[AutonomousEvidenceRecord]) -> str:
+    if company_slug in GOLD_STANDARD_COMPANY_RANKS:
+        return gold_standard_status(records)
+    return "validated" if gold_standard_complete(records) else "in_progress"
+
+
 def gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
     published_keys = {
         record.metric_definition.key
@@ -679,6 +828,68 @@ def gold_standard_complete(records: list[AutonomousEvidenceRecord]) -> bool:
         and record.source_url
     }
     return GOLD_STANDARD_METRIC_KEYS <= published_keys
+
+
+def validation_label(company_slug: str, records: list[AutonomousEvidenceRecord]) -> str | None:
+    rank = AI_ECONOMY_COMPANY_RANKS.get(company_slug)
+    if not rank or not gold_standard_complete(records):
+        return None
+    if company_slug in GOLD_STANDARD_COMPANY_RANKS:
+        return f"Gold Standard Company #{rank}"
+    return f"AI Economy Validated Company #{rank}"
+
+
+def required_evidence_types(company_slug: str, metric_key: str) -> set[str]:
+    if company_slug in PRIVATE_AI_COMPANY_SLUGS:
+        return PRIVATE_AI_EVIDENCE_EXPECTED.get(metric_key, set())
+    return REQUIRED_EVIDENCE_EXPECTED.get(metric_key, set())
+
+
+def validation_section_payload(record: AutonomousEvidenceRecord) -> dict[str, object]:
+    source = record.source
+    lineage = public_lineage(record)
+    return {
+        "id": record.id,
+        "section_key": f"{record.metric_definition.key}_evidence",
+        "title": f"{record.metric_definition.name} Evidence",
+        "description": record.evidence_text,
+        "required_source_types": sorted(
+            required_evidence_types(record.company.slug, record.metric_definition.key)
+        ),
+        "coverage_score": float(record.evidence_coverage_score),
+        "openvals_validation_score": float(record.openvals_score),
+        "reviewer_notes": record.reviewer_notes,
+        "source_approval_status": "approved" if record.status == PUBLISHED else record.status,
+        "methodology_trace": record.validation_notes or record.evidence_text,
+        "lineage": [lineage],
+        "evidence": [
+            {
+                "id": record.id,
+                "evidence_role": record.metric_definition.key,
+                "approval_status": "approved" if record.status == PUBLISHED else record.status,
+                "reviewer_notes": record.reviewer_notes,
+                "methodology_trace": record.validation_notes or record.evidence_text,
+                "reviewed_by": record.reviewer.full_name if record.reviewer else None,
+                "reviewed_at": record.reviewed_at.isoformat() if record.reviewed_at else None,
+                "source": {
+                    "id": source.id,
+                    "title": source.title,
+                    "source_type": source.source_type,
+                    "source_tier": source_tier(source.source_type),
+                    "credibility_score": source_credibility_score(
+                        source.source_type, source.published_at
+                    ),
+                    "publisher": source.publisher,
+                    "url": source.url,
+                    "published_at": source.published_at.isoformat()
+                    if source.published_at
+                    else None,
+                    "reliability_score": source.reliability_score,
+                    "status": source.status,
+                },
+            }
+        ],
+    }
 
 
 def gold_standard_company_name(

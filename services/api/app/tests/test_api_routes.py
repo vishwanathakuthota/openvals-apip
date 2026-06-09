@@ -10,6 +10,19 @@ from app.db.models import Base
 from app.db.seed import seed_database
 from app.main import app
 
+AI_ECONOMY_COMPANIES = {
+    "amazon": "Amazon",
+    "anthropic": "Anthropic",
+    "alphabet": "Alphabet",
+    "meta": "Meta",
+    "microsoft": "Microsoft",
+    "mistral": "Mistral",
+    "nvidia": "NVIDIA",
+    "openai": "OpenAI",
+    "perplexity": "Perplexity",
+    "xai": "xAI",
+}
+
 
 def build_client() -> TestClient:
     engine = create_engine(
@@ -320,6 +333,55 @@ def test_openvals_trust_index_api_returns_summary_leaderboard_trend_and_methodol
     companies = {item["entity_name"] for item in leaderboard.json()["items"]}
     assert companies >= {"Microsoft", "NVIDIA", "Alphabet"}
     assert methodology.json()["formula"].startswith("30% Confidence")
+
+
+def test_ai_economy_expansion_publishes_all_ten_companies_to_trust_index():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    trust_center = client.get("/api/v1/trust-center", headers=headers).json()
+    leaderboard = client.get("/api/v1/leaderboard", headers=headers).json()["items"]
+
+    assert trust_center["metrics"]["published_records"] >= 60
+    assert trust_center["metrics"]["public_lineage_records"] >= 60
+    assert {item["entity_name"] for item in leaderboard} >= set(AI_ECONOMY_COMPANIES.values())
+    for company_name in AI_ECONOMY_COMPANIES.values():
+        item = next(entry for entry in leaderboard if entry["entity_name"] == company_name)
+        assert item["trust_index"] > 0
+        assert item["published_record_count"] == 6
+        assert item["source_count"] >= 1
+
+
+def test_ai_economy_expansion_company_artifacts_are_generated_for_all_companies():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    for slug, company_name in AI_ECONOMY_COMPANIES.items():
+        report = client.get(f"/api/v1/companies/{slug}/validation-report", headers=headers)
+        timeline = client.get(f"/api/v1/companies/{slug}/evidence-timeline", headers=headers)
+        lineage = client.get(f"/api/v1/companies/{slug}/source-lineage", headers=headers)
+        score = client.get(f"/api/v1/companies/{slug}/openvals-score", headers=headers)
+        trust = client.get(f"/api/v1/companies/{slug}/trust-report", headers=headers)
+
+        assert report.status_code == 200
+        assert timeline.status_code == 200
+        assert lineage.status_code == 200
+        assert score.status_code == 200
+        assert trust.status_code == 200
+        report_payload = report.json()
+        assert report_payload["company"] == company_name
+        assert report_payload["status"] in {"gold_standard", "validated"}
+        assert report_payload["validation_label"]
+        assert report_payload["published_records"] == 6
+        assert report_payload["evidence_coverage_score"] > 0
+        assert report_payload["openvals_validation_score"] > 0
+        assert len(report_payload["sections"]) == 6
+        assert timeline.json()["items"]
+        assert lineage.json()["items"]
+        assert score.json()["published_records"] == 6
+        assert score.json()["validation_label"]
+        assert score.json()["openvals_score"] > 0
+        assert trust.json()["metrics"]["published_records"] == 6
 
 
 def test_company_and_metric_payloads_include_trust_index_fields():

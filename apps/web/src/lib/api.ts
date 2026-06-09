@@ -222,6 +222,13 @@ export function fetchAlphabetValidationReport() {
   });
 }
 
+export function fetchCompanyValidationReport(companySlug: string) {
+  return apiFetch<MicrosoftValidationReport>(
+    `companies/${companySlug}/validation-report`,
+    fallbackValidationReport(companySlug)
+  );
+}
+
 export function fetchTrustCenter() {
   return apiFetch<TrustCenter>("trust-center", {
     workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
@@ -278,6 +285,13 @@ export function fetchAlphabetEvidenceTimeline() {
   );
 }
 
+export function fetchCompanyEvidenceTimeline(companySlug: string) {
+  return apiFetch<CollectionResponse<AutonomousEvidenceRecord>>(
+    `companies/${companySlug}/evidence-timeline`,
+    { items: [], next_cursor: null }
+  );
+}
+
 export function fetchMicrosoftSourceLineage() {
   return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
     "companies/microsoft/source-lineage",
@@ -296,6 +310,14 @@ export function fetchAlphabetSourceLineage() {
   return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
     "companies/alphabet/source-lineage",
     { company: "Alphabet", items: [], next_cursor: null }
+  );
+}
+
+export function fetchCompanySourceLineage(companySlug: string) {
+  const name = companyNameFromSlug(companySlug);
+  return apiFetch<{ company: string; items: SourceLineage[]; next_cursor: null }>(
+    `companies/${companySlug}/source-lineage`,
+    { company: name, items: [], next_cursor: null }
   );
 }
 
@@ -348,6 +370,13 @@ export function fetchAlphabetOpenValsScore() {
     last_updated: null,
     methodology_note: "Alphabet Gold Standard validation data is not available yet."
   });
+}
+
+export function fetchCompanyOpenValsScore(companySlug: string) {
+  return apiFetch<CompanyOpenValsScore>(
+    `companies/${companySlug}/openvals-score`,
+    fallbackOpenValsScore(companySlug)
+  );
 }
 
 export function fetchMicrosoftTrustReport() {
@@ -417,4 +446,100 @@ export function fetchAlphabetTrustReport() {
     },
     items: []
   });
+}
+
+export function fetchCompanyTrustReport(companySlug: string) {
+  return apiFetch<TrustCenter>(
+    `companies/${companySlug}/trust-report`,
+    fallbackTrustReport(companySlug)
+  );
+}
+
+function companyNameFromSlug(companySlug: string) {
+  const names: Record<string, string> = {
+    alphabet: "Alphabet",
+    amazon: "Amazon",
+    anthropic: "Anthropic",
+    google: "Alphabet",
+    meta: "Meta",
+    microsoft: "Microsoft",
+    mistral: "Mistral",
+    nvidia: "NVIDIA",
+    openai: "OpenAI",
+    perplexity: "Perplexity",
+    xai: "xAI"
+  };
+  return names[companySlug] ?? companySlug;
+}
+
+function fallbackValidationReport(companySlug: string): MicrosoftValidationReport {
+  const company = companyNameFromSlug(companySlug);
+  return {
+    id: `${companySlug}-validation-fallback`,
+    company,
+    company_slug: companySlug,
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    validation_rank: null,
+    validation_label: null,
+    report_path: `/companies/${companySlug}/validation-report`,
+    methodology_version: "ai-economy-validation-v1",
+    methodology_trace:
+      "AI Economy validation data is not available until the backend API is configured.",
+    reviewer_notes: "Configure the backend API to load the live validation report.",
+    evidence_coverage_score: 0,
+    openvals_validation_score: 0,
+    openvals_validation_label: "Insufficient Evidence",
+    exported_at: null,
+    last_updated: null,
+    sections: [],
+    source_lineage: []
+  };
+}
+
+function fallbackOpenValsScore(companySlug: string): CompanyOpenValsScore {
+  const company = companyNameFromSlug(companySlug);
+  return {
+    company,
+    company_slug: companySlug,
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    validation_rank: null,
+    validation_label: null,
+    openvals_score: 0,
+    classification: "Weak",
+    published_records: 0,
+    evidence_coverage_score: 0,
+    confidence_score: 0,
+    source_count: 0,
+    last_updated: null,
+    methodology_note: `${company} AI Economy validation data is not available yet.`
+  };
+}
+
+function fallbackTrustReport(companySlug: string): TrustCenter {
+  const company = companyNameFromSlug(companySlug);
+  return {
+    company,
+    company_slug: companySlug,
+    status: "in_progress",
+    gold_standard_rank: null,
+    gold_standard_label: null,
+    validation_rank: null,
+    validation_label: null,
+    workflow: "COLLECT -> ANALYZE -> SCORE -> QUEUE -> REVIEW -> APPROVE -> PUBLISH",
+    auto_publish_enabled: false,
+    metrics: {
+      total_records: 0,
+      published_records: 0,
+      approved_records: 0,
+      under_review_records: 0,
+      manual_review_required: 0,
+      average_confidence: 0,
+      average_openvals_score: 0,
+      public_lineage_records: 0
+    },
+    items: []
+  };
 }

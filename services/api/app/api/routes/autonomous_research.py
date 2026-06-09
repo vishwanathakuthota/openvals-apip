@@ -10,13 +10,16 @@ from app.domains.autonomous_research.service import (
     UNDER_REVIEW,
     alphabet_evidence_records,
     approve_evidence_record,
+    company_evidence_records,
     company_openvals_score_payload,
     company_pilot_payload,
+    company_validation_report_payload,
     evidence_record_payload,
     microsoft_evidence_records,
     nvidia_evidence_records,
     reject_evidence_record,
     request_additional_evidence,
+    run_ai_economy_validation,
     run_alphabet_gold_standard_validation,
     run_approval_agent,
     run_microsoft_pilot_validation,
@@ -221,6 +224,61 @@ def alphabet_trust_report(
     return company_pilot_payload(db, "google")
 
 
+@router.get("/companies/{company_slug}/validation-report")
+def ai_economy_validation_report(
+    company_slug: str,
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_validation_report_payload(db, resolve_company_slug(company_slug))
+
+
+@router.get("/companies/{company_slug}/evidence-timeline")
+def ai_economy_evidence_timeline(
+    company_slug: str,
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = company_evidence_records(db, resolve_company_slug(company_slug))
+    return {"items": [evidence_record_payload(record) for record in records], "next_cursor": None}
+
+
+@router.get("/companies/{company_slug}/source-lineage")
+def ai_economy_source_lineage(
+    company_slug: str,
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    records = [
+        record
+        for record in company_evidence_records(db, resolve_company_slug(company_slug))
+        if record.status == PUBLISHED
+    ]
+    return {
+        "company": records[0].company.name if records else company_slug,
+        "items": [evidence_record_payload(record)["lineage"] for record in records],
+        "next_cursor": None,
+    }
+
+
+@router.get("/companies/{company_slug}/openvals-score")
+def ai_economy_openvals_score(
+    company_slug: str,
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_openvals_score_payload(db, resolve_company_slug(company_slug))
+
+
+@router.get("/companies/{company_slug}/trust-report")
+def ai_economy_trust_report(
+    company_slug: str,
+    _: dict[str, str] = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return company_pilot_payload(db, resolve_company_slug(company_slug))
+
+
 @router.get("/research-queue")
 def public_research_queue(
     _: dict[str, str] = Depends(require_api_key),
@@ -357,6 +415,16 @@ def admin_run_alphabet_gold_standard_validation(
     return result
 
 
+@router.post("/admin/ai-economy-validation/run")
+def admin_run_ai_economy_validation(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    result = run_ai_economy_validation(db, reviewer_user_id=claims["sub"])
+    db.commit()
+    return result
+
+
 @router.patch("/admin/autonomous-research/evidence/{record_id}/review")
 def admin_review_autonomous_evidence(
     record_id: str,
@@ -419,3 +487,8 @@ def optional_text(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def resolve_company_slug(company_slug: str) -> str:
+    normalized = company_slug.strip().lower()
+    return "google" if normalized == "alphabet" else normalized

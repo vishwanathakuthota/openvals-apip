@@ -653,6 +653,10 @@ def gold_standard_validation_report_payload(
         "gold_standard_label": (
             f"Gold Standard Company #{rank}" if workspace.status == "gold_standard" else None
         ),
+        "validation_rank": rank,
+        "validation_label": (
+            f"Gold Standard Company #{rank}" if workspace.status == "gold_standard" else None
+        ),
         "report_path": workspace.report_path,
         "methodology_version": workspace.methodology_version,
         "methodology_trace": workspace.methodology_trace,
@@ -662,6 +666,7 @@ def gold_standard_validation_report_payload(
         "openvals_validation_label": validation_label(float(workspace.openvals_validation_score)),
         "exported_at": workspace.exported_at.isoformat() if workspace.exported_at else None,
         "last_updated": workspace.updated_at.isoformat() if workspace.updated_at else None,
+        "published_records": len(sections),
         "sections": sections,
         "source_lineage": [lineage for section in sections for lineage in section["lineage"]],
     }
