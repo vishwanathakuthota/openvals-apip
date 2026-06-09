@@ -5,6 +5,7 @@ import {
   BookOpen,
   Building2,
   Calculator,
+  CalendarDays,
   Code2,
   FileWarning,
   Gauge,
@@ -12,6 +13,7 @@ import {
   Info,
   Landmark,
   ListOrdered,
+  Mail,
   Orbit,
   ShieldCheck
 } from "lucide-react";
@@ -27,14 +29,14 @@ export const metadata: Metadata = {
     template: "%s | APIP"
   },
   description:
-    "APIP by OpenVals measures whether AI investments are producing real economic value with transparent metrics, sources, confidence scores, and AI Reality Index rankings.",
+    "Join the APIP public beta from OpenVals, the source-backed trust platform for AI profitability intelligence.",
   alternates: {
     canonical: "/"
   },
   openGraph: {
     title: "APIP by OpenVals",
     description:
-      "Evidence-based AI profitability intelligence for companies, industries, countries, and model economics.",
+      "Source-backed AI profitability intelligence with Trust Index, confidence scores, evidence coverage, and public APIs.",
     url: siteUrl,
     siteName: "APIP",
     images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "APIP by OpenVals" }],
@@ -52,7 +54,7 @@ export const metadata: Metadata = {
 };
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: BarChart3 },
+  { href: "/", label: "Public Beta", icon: BarChart3 },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/industries", label: "Industries", icon: Landmark },
   { href: "/countries", label: "Countries", icon: Globe2 },
@@ -62,16 +64,19 @@ const navItems = [
   { href: "/leaderboard", label: "Leaderboard", icon: ListOrdered },
   { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
   { href: "/calculator", label: "ROI Calculator", icon: Calculator },
-  { href: "/developers", label: "Developers", icon: Code2 }
+  { href: "/developers", label: "Developers", icon: Code2 },
+  { href: "/pricing", label: "Pricing", icon: Gauge }
 ];
 
 const footerLinks = [
   { href: "/methodology", label: "Methodology", icon: BookOpen },
-  { href: "/trust-methodology", label: "Trust Methodology", icon: Gauge },
   { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
-  { href: "/about", label: "About", icon: Info },
+  { href: "/developers", label: "Developers", icon: Code2 },
+  { href: "/pricing", label: "Pricing", icon: Gauge },
   { href: "/disclaimer", label: "Disclaimer", icon: FileWarning },
-  { href: "/developers", label: "Developers", icon: Code2 }
+  { href: "/changelog", label: "Changelog", icon: CalendarDays },
+  { href: "/status", label: "Status", icon: Info },
+  { href: "/contact", label: "Contact", icon: Mail }
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

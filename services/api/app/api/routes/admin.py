@@ -116,8 +116,17 @@ def admin_dashboard(
             "invoices": len(db.scalars(select(Invoice)).all()),
         },
         "commercial": commercial_dashboard_payload(db),
+        "post_launch": launch_metrics_payload(db),
         "plans": plan_payloads(),
     }
+
+
+@router.get("/launch-metrics")
+def admin_launch_metrics(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return launch_metrics_payload(db)
 
 
 @router.get("/commercial-dashboard")
@@ -1264,6 +1273,25 @@ def audit_logs(
 ) -> dict[str, object]:
     logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(500)).all()
     return {"items": [audit_log_payload(log) for log in logs], "next_cursor": None}
+
+
+def launch_metrics_payload(db: Session) -> dict[str, object]:
+    commercial = commercial_dashboard_payload(db)
+    audit_logs = db.scalars(select(AuditLog)).all()
+    beta_signups = [
+        item for item in audit_logs if item.action == "public_beta.waitlist.created"
+    ]
+    enterprise_inquiries = [
+        item for item in audit_logs if item.action == "public_beta.enterprise.created"
+    ]
+    return {
+        "signups": len(beta_signups),
+        "enterprise_inquiries": len(enterprise_inquiries),
+        "api_keys_created": len(db.scalars(select(ApiKey)).all()),
+        "api_usage": commercial["api_consumption"],
+        "top_endpoints": commercial["api_consumption"]["top_endpoints"],
+        "active_plans": commercial["plan_distribution"],
+    }
 
 
 def get_source_metric(db: Session, source_metric_id: str) -> SourceMetric:

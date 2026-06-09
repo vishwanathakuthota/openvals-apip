@@ -1065,6 +1065,58 @@ def test_commercial_plans_and_subscription_records_are_exposed_to_admins():
     assert any(item["payment_provider"] == "manual" for item in invoices.json()["items"])
 
 
+def test_public_beta_signup_and_enterprise_inquiry_feed_launch_metrics():
+    client = build_client()
+    headers = auth_headers(client)
+
+    signup = client.post(
+        "/api/v1/public-beta/signups",
+        json={
+            "submission_type": "waitlist",
+            "name": "Beta User",
+            "email": "beta@example.com",
+            "organization": "Example Research",
+            "interest": "Validate source-backed AI economics.",
+        },
+    )
+    assert signup.status_code == 202
+    assert signup.json()["status"] == "accepted"
+
+    inquiry = client.post(
+        "/api/v1/public-beta/signups",
+        json={
+            "submission_type": "enterprise",
+            "name": "Enterprise Buyer",
+            "email": "enterprise@example.com",
+            "organization": "Example Capital",
+            "interest": "Enterprise API access and validation workflow.",
+        },
+    )
+    assert inquiry.status_code == 202
+
+    invalid = client.post(
+        "/api/v1/public-beta/signups",
+        json={"submission_type": "partner", "email": "bad@example.com"},
+    )
+    assert invalid.status_code == 400
+
+    metrics = client.get("/api/v1/admin/launch-metrics", headers=headers)
+    assert metrics.status_code == 200
+    metrics_payload = metrics.json()
+    assert metrics_payload["signups"] == 1
+    assert metrics_payload["enterprise_inquiries"] == 1
+    assert "api_keys_created" in metrics_payload
+    assert "top_endpoints" in metrics_payload
+    assert "active_plans" in metrics_payload
+
+    audits = client.get("/api/v1/admin/audit-logs", headers=headers)
+    actions = {item["action"] for item in audits.json()["items"]}
+    assert {
+        "public_beta.waitlist.created",
+        "public_beta.enterprise.created",
+    } <= actions
+
+
 def test_public_api_requires_api_key():
     client = build_client()
 

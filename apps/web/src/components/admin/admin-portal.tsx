@@ -129,6 +129,18 @@ type CommercialDashboard = {
   };
   plan_distribution: Record<string, number>;
 };
+type LaunchMetrics = {
+  signups: number;
+  enterprise_inquiries: number;
+  api_keys_created: number;
+  api_usage: {
+    requests_today: number;
+    total_requests: number;
+    top_endpoints: { endpoint: string; request_count: number }[];
+  };
+  top_endpoints: { endpoint: string; request_count: number }[];
+  active_plans: Record<string, number>;
+};
 
 const resources = [
   { key: "companies", label: "Companies", fields: ["name", "ticker", "website_url", "status"] },
@@ -147,6 +159,7 @@ export function AdminPortal() {
   const [items, setItems] = useState<Record<string, AdminItem[]>>({});
   const [counts, setCounts] = useState<DashboardCounts>({});
   const [commercialDashboard, setCommercialDashboard] = useState<CommercialDashboard | null>(null);
+  const [launchMetrics, setLaunchMetrics] = useState<LaunchMetrics | null>(null);
   const [sourceMetrics, setSourceMetrics] = useState<SourceMetric[]>([]);
   const [lineage, setLineage] = useState<LineageRecord[]>([]);
   const [companyValidations, setCompanyValidations] = useState<CompanyValidation[]>([]);
@@ -222,6 +235,7 @@ export function AdminPortal() {
     const authHeader = { Authorization: `Bearer ${currentToken}` };
     const [
       dashboard,
+      launchMetricsResponse,
       metrics,
       lineageResponse,
       validationsResponse,
@@ -232,6 +246,7 @@ export function AdminPortal() {
       ...resourceResponses
     ] = await Promise.all([
       fetch("/api/admin/dashboard", { headers: authHeader }).then((response) => response.json()),
+      fetch("/api/admin/launch-metrics", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/source-metrics", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/lineage", { headers: authHeader }).then((response) => response.json()),
       fetch("/api/admin/company-validations", { headers: authHeader }).then((response) => response.json()),
@@ -245,6 +260,7 @@ export function AdminPortal() {
     ]);
     setCounts(dashboard.counts ?? {});
     setCommercialDashboard(dashboard.commercial ?? null);
+    setLaunchMetrics(launchMetricsResponse ?? dashboard.post_launch ?? null);
     setSourceMetrics(metrics.items ?? []);
     setLineage(lineageResponse.items ?? []);
     setCompanyValidations(validationsResponse.items ?? []);
@@ -511,6 +527,7 @@ export function AdminPortal() {
           ))}
         </div>
         <CommercialDashboardCards dashboard={commercialDashboard} />
+        <LaunchMetricsCards metrics={launchMetrics} />
         <Badge>{message}</Badge>
       </section>
 
@@ -802,6 +819,60 @@ function CommercialDashboardCards({ dashboard }: { dashboard: CommercialDashboar
               {plan}: {count}
             </Badge>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LaunchMetricsCards({ metrics }: { metrics: LaunchMetrics | null }) {
+  if (!metrics) {
+    return null;
+  }
+  const cards = [
+    { label: "Beta signups", value: metrics.signups.toLocaleString() },
+    { label: "Enterprise inquiries", value: metrics.enterprise_inquiries.toLocaleString() },
+    { label: "API keys created", value: metrics.api_keys_created.toLocaleString() },
+    { label: "Total API usage", value: metrics.api_usage.total_requests.toLocaleString() }
+  ];
+  return (
+    <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+      <div>
+        <span className="text-xs font-semibold uppercase text-muted-foreground">Post-launch metrics</span>
+        <strong className="block text-lg">Public Beta Funnel</strong>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        {cards.map((card) => (
+          <div className="rounded-md border border-border bg-card p-3" key={card.label}>
+            <span className="text-xs text-muted-foreground">{card.label}</span>
+            <strong className="block text-xl">{card.value}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-2">
+          <span className="text-xs text-muted-foreground">Top endpoints</span>
+          <div className="flex flex-wrap gap-2">
+            {metrics.top_endpoints.length ? (
+              metrics.top_endpoints.map((endpoint) => (
+                <Badge key={endpoint.endpoint}>
+                  {endpoint.endpoint}: {endpoint.request_count}
+                </Badge>
+              ))
+            ) : (
+              <Badge>No usage yet</Badge>
+            )}
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <span className="text-xs text-muted-foreground">Active plans</span>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(metrics.active_plans).map(([plan, count]) => (
+              <Badge key={plan}>
+                {plan}: {count}
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
     </div>
