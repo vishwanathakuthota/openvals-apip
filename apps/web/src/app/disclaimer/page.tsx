@@ -4,7 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Disclaimer",
-  description: "Important limitations and usage terms for OpenVals APIP Version 1."
+  description: "Important limitations and usage terms for OpenVals APIP Version 1.",
+  alternates: { canonical: "/disclaimer" },
+  openGraph: {
+    title: "APIP Disclaimer",
+    description: "Public beta disclaimer for OpenVals APIP source-backed AI profitability intelligence.",
+    url: "/disclaimer",
+    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "APIP Disclaimer" }]
+  }
 };
 
 export default function DisclaimerPage() {
@@ -23,7 +30,15 @@ export default function DisclaimerPage() {
         {[
           [
             "Data limitations",
-            "Metrics can be incomplete, delayed, revised, or dependent on source methodology. Confidence scores explain evidence quality but do not guarantee correctness."
+            "APIP data is source-backed, but metrics can be incomplete, delayed, revised, or dependent on source methodology."
+          ],
+          [
+            "Estimated metrics",
+            "Some metrics are estimated or derived when companies do not directly disclose AI-specific economics."
+          ],
+          [
+            "Trust Index scope",
+            "Trust Index measures evidence quality, source transparency, and reproducibility. It does not measure company quality, investment quality, or management quality."
           ],
           [
             "Forward-looking claims",

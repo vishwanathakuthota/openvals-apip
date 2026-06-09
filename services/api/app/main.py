@@ -13,6 +13,7 @@ from app.api.routes import (
     metrics,
     microsoft_validation,
     models,
+    public_beta,
     research,
     roi_calculator,
     scoreboard,
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router, prefix="/api/v1", tags=["metrics"])
     app.include_router(confidence.router, prefix="/api/v1", tags=["confidence"])
     app.include_router(roi_calculator.router, prefix="/api/v1", tags=["roi-calculator"])
+    app.include_router(public_beta.router, prefix="/api/v1", tags=["public-beta"])
     app.include_router(research.router, prefix="/api/v1", tags=["research-operations"])
     app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
     app.include_router(validations.router, prefix="/api/v1", tags=["company-validations"])
