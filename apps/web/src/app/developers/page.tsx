@@ -23,6 +23,45 @@ const examples = [
   {
     title: "AI Reality Index",
     command: "curl -H 'X-API-Key: apip_live_...' https://apip.openvalidations.com/api/v1/ai-reality-index"
+  },
+  {
+    title: "Trust Index",
+    command: "curl -H 'X-API-Key: apip_live_...' https://apip.openvalidations.com/api/v1/trust-index"
+  },
+  {
+    title: "Source Lineage",
+    command: "curl -H 'X-API-Key: apip_live_...' https://apip.openvalidations.com/api/v1/source-lineage"
+  }
+];
+
+const plans = [
+  {
+    name: "Community",
+    quota: "100/day",
+    price: "$0",
+    badge: "Starter",
+    description: "Public API access for pilots and local integrations."
+  },
+  {
+    name: "Research",
+    quota: "1,000/day",
+    price: "$99/mo",
+    badge: "Research",
+    description: "Higher request volume with source lineage and export-ready evidence."
+  },
+  {
+    name: "Professional",
+    quota: "5,000/day",
+    price: "$499/mo",
+    badge: "Commercial",
+    description: "Production API access with Trust Index history and priority support."
+  },
+  {
+    name: "Enterprise",
+    quota: "Unlimited",
+    price: "Contract",
+    badge: "SLA",
+    description: "Custom quotas, contract terms, and enterprise support hooks."
   }
 ];
 
@@ -34,34 +73,20 @@ export default function DevelopersPage() {
         <h1 className="text-4xl font-semibold">Developer Access</h1>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Free</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <strong className="text-2xl">100/day</strong>
-            <Badge>Default</Badge>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Pro</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <strong className="text-2xl">5,000/day</strong>
-            <Badge>Partner</Badge>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Enterprise</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <strong className="text-2xl">Unlimited</strong>
-            <Badge>Contract</Badge>
-          </CardContent>
-        </Card>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {plans.map((plan) => (
+          <Card key={plan.name}>
+            <CardHeader>
+              <CardTitle>{plan.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2">
+              <strong className="text-2xl">{plan.quota}</strong>
+              <span className="text-sm text-muted-foreground">{plan.price}</span>
+              <Badge>{plan.badge}</Badge>
+              <p className="text-sm text-muted-foreground">{plan.description}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
 
       <section className="grid gap-4">
@@ -69,10 +94,14 @@ export default function DevelopersPage() {
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-3">
             <pre className="overflow-x-auto rounded-md border border-border bg-background p-4 text-sm">
               <code>X-API-Key: apip_live_...</code>
             </pre>
+            <p className="text-sm text-muted-foreground">
+              Admins can create, rotate, and revoke keys from the APIP admin portal. Each request is
+              metered by key, endpoint, method, and plan.
+            </p>
           </CardContent>
         </Card>
 

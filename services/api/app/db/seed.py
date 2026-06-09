@@ -27,7 +27,7 @@ from app.domains.autonomous_research.service import (
     run_validation_agent,
 )
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
-from app.domains.identity.api_keys import hash_api_key
+from app.domains.identity.api_keys import ensure_subscription, hash_api_key
 from app.domains.microsoft_validation.service import (
     ensure_alphabet_validation_workspace,
     ensure_microsoft_validation_workspace,
@@ -64,7 +64,7 @@ def seed_database(db: Session) -> None:
         status="active",
         password_hash=hash_password("apip-admin-change-me"),
     )
-    get_or_create(
+    local_api_key = get_or_create(
         db,
         ApiKey,
         "key_hash",
@@ -76,6 +76,7 @@ def seed_database(db: Session) -> None:
         status="active",
         created_by_user_id=admin.id,
     )
+    ensure_subscription(db, local_api_key)
 
     countries = {
         "US": get_or_create(

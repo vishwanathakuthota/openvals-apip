@@ -59,6 +59,58 @@ class ApiKey(TimestampMixin, Base):
     created_by: Mapped[User | None] = relationship()
 
 
+class ApiUsageEvent(Base):
+    __tablename__ = "api_usage_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    api_key_id: Mapped[str] = mapped_column(ForeignKey("api_keys.id"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(500), index=True)
+    method: Mapped[str] = mapped_column(String(12), index=True)
+    plan: Mapped[str] = mapped_column(String(40), index=True)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_count: Mapped[int] = mapped_column(Integer, default=1)
+    usage_date: Mapped[date] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    api_key: Mapped[ApiKey] = relationship()
+
+
+class ApiSubscription(TimestampMixin, Base):
+    __tablename__ = "api_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    api_key_id: Mapped[str] = mapped_column(ForeignKey("api_keys.id"), index=True)
+    plan: Mapped[str] = mapped_column(String(40), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="active", index=True)
+    monthly_price_usd: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    daily_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    entitlements_json: Mapped[str] = mapped_column(Text)
+    current_period_start: Mapped[date] = mapped_column(Date)
+    current_period_end: Mapped[date] = mapped_column(Date)
+    payment_provider: Mapped[str] = mapped_column(String(80), default="manual")
+    external_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    api_key: Mapped[ApiKey] = relationship()
+
+
+class Invoice(TimestampMixin, Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    subscription_id: Mapped[str] = mapped_column(ForeignKey("api_subscriptions.id"), index=True)
+    invoice_number: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
+    amount_due_usd: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    amount_paid_usd: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    payment_provider: Mapped[str] = mapped_column(String(80), default="manual")
+    external_invoice_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    subscription: Mapped[ApiSubscription] = relationship()
+
+
 class Country(TimestampMixin, Base):
     __tablename__ = "countries"
 

@@ -15,6 +15,8 @@ from app.api.routes.validations import company_validation_payload
 from app.db.models import (
     AIModel,
     ApiKey,
+    ApiSubscription,
+    ApiUsageEvent,
     AuditLog,
     AutonomousEvidenceRecord,
     Company,
@@ -27,6 +29,7 @@ from app.db.models import (
     Country,
     DataLineage,
     Industry,
+    Invoice,
     MetricDefinition,
     MetricSource,
     MetricValue,
@@ -41,7 +44,20 @@ from app.db.seed import seed_database
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.catalog_importer import import_catalog_csv, normalize_entity_type
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
-from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
+from app.domains.identity.api_keys import (
+    PLAN_LIMITS,
+    api_key_payload,
+    commercial_dashboard_payload,
+    ensure_subscription,
+    generate_api_key,
+    invoice_payload,
+    normalize_plan,
+    plan_payloads,
+    revoke_api_key,
+    rotate_api_key,
+    subscription_payload,
+    usage_event_payload,
+)
 from app.domains.ingestion.connectors import ManualResearchConnector
 from app.domains.microsoft_validation.service import (
     ensure_microsoft_validation_workspace,
@@ -95,8 +111,74 @@ def admin_dashboard(
             "validation_workspaces": len(db.scalars(select(CompanyValidationWorkspace)).all()),
             "research_queue": len(db.scalars(select(ResearchQueueItem)).all()),
             "autonomous_evidence": len(db.scalars(select(AutonomousEvidenceRecord)).all()),
-        }
+            "usage_events": len(db.scalars(select(ApiUsageEvent)).all()),
+            "subscriptions": len(db.scalars(select(ApiSubscription)).all()),
+            "invoices": len(db.scalars(select(Invoice)).all()),
+        },
+        "commercial": commercial_dashboard_payload(db),
+        "plans": plan_payloads(),
     }
+
+
+@router.get("/commercial-dashboard")
+def admin_commercial_dashboard(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return {
+        "plans": plan_payloads(),
+        "dashboard": commercial_dashboard_payload(db),
+        "subscriptions": [
+            subscription_payload(item)
+            for item in db.scalars(
+                select(ApiSubscription).order_by(ApiSubscription.created_at)
+            ).all()
+        ],
+        "invoices": [
+            invoice_payload(item)
+            for item in db.scalars(select(Invoice).order_by(Invoice.created_at.desc())).all()
+        ],
+        "usage": [
+            usage_event_payload(item)
+            for item in db.scalars(
+                select(ApiUsageEvent).order_by(ApiUsageEvent.created_at.desc()).limit(100)
+            ).all()
+        ],
+    }
+
+
+@router.get("/api-usage")
+def admin_api_usage(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(
+        select(ApiUsageEvent).order_by(ApiUsageEvent.created_at.desc()).limit(250)
+    ).all()
+    return {"items": [usage_event_payload(item) for item in items], "next_cursor": None}
+
+
+@router.get("/subscriptions")
+def admin_subscriptions(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(ApiSubscription).order_by(ApiSubscription.created_at.desc())).all()
+    return {"items": [subscription_payload(item) for item in items], "next_cursor": None}
+
+
+@router.get("/invoices")
+def admin_invoices(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    items = db.scalars(select(Invoice).order_by(Invoice.created_at.desc())).all()
+    return {"items": [invoice_payload(item) for item in items], "next_cursor": None}
+
+
+@router.get("/plans")
+def admin_plans(_: dict[str, str] = Depends(require_admin)) -> dict[str, object]:
+    return {"items": plan_payloads(), "next_cursor": None}
 
 
 @router.get("/api-keys")
@@ -144,7 +226,8 @@ def admin_update_api_key(
         api_key.name = required_text(payload, "name")
     if "plan" in payload:
         api_key.plan = normalize_plan(str(payload["plan"]))
-        api_key.daily_limit = {"free": 100, "pro": 5000, "enterprise": None}[api_key.plan]
+        api_key.daily_limit = PLAN_LIMITS[api_key.plan]
+        ensure_subscription(db, api_key)
     if "status" in payload:
         api_key.status = required_text(payload, "status")
     write_audit_log(
@@ -154,6 +237,46 @@ def admin_update_api_key(
         target_type="api_key",
         target_id=api_key.id,
         metadata={"name": api_key.name, "plan": api_key.plan, "status": api_key.status},
+    )
+    db.commit()
+    return api_key_payload(api_key)
+
+
+@router.post("/api-keys/{api_key_id}/rotate")
+def admin_rotate_api_key(
+    api_key_id: str,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    api_key = get_or_404(db, ApiKey, api_key_id, "api_key_not_found")
+    generated = rotate_api_key(db, api_key)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="api_key.rotated",
+        target_type="api_key",
+        target_id=api_key.id,
+        metadata={"name": api_key.name, "plan": api_key.plan},
+    )
+    db.commit()
+    return {**api_key_payload(generated.record), "api_key": generated.plaintext_key}
+
+
+@router.post("/api-keys/{api_key_id}/revoke")
+def admin_revoke_api_key(
+    api_key_id: str,
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    api_key = get_or_404(db, ApiKey, api_key_id, "api_key_not_found")
+    revoke_api_key(api_key)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="api_key.revoked",
+        target_type="api_key",
+        target_id=api_key.id,
+        metadata={"name": api_key.name, "plan": api_key.plan},
     )
     db.commit()
     return api_key_payload(api_key)

@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.security import verify_access_token
@@ -38,6 +38,7 @@ def require_admin(claims: dict[str, str] = Depends(require_jwt)) -> dict[str, st
 
 
 def require_api_key(
+    request: Request,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     db: Session = Depends(get_db),
 ) -> dict[str, str | int | None]:
@@ -46,7 +47,12 @@ def require_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "api_key_required", "message": "X-API-Key header is required."},
         )
-    api_key = validate_api_key(db, x_api_key)
+    api_key = validate_api_key(
+        db,
+        x_api_key,
+        endpoint=request.url.path,
+        method=request.method,
+    )
     return {
         "api_key_id": api_key.id,
         "plan": api_key.plan,
