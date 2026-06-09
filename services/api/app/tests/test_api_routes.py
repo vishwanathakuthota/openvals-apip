@@ -984,6 +984,87 @@ def test_admin_dashboard_catalog_management_source_management_and_seed_import():
     } <= actions
 
 
+def test_commercial_foundation_api_key_lifecycle_metering_and_dashboard():
+    client = build_client()
+    headers = auth_headers(client)
+
+    created = client.post(
+        "/api/v1/admin/api-keys",
+        headers=headers,
+        json={"name": "Research API", "plan": "research"},
+    )
+    assert created.status_code == 201
+    created_payload = created.json()
+    assert created_payload["plan"] == "research"
+    assert created_payload["daily_limit"] == 1000
+    assert "source_lineage" in created_payload["entitlements"]
+
+    public_headers = {"X-API-Key": created_payload["api_key"]}
+    public_response = client.get("/api/v1/companies", headers=public_headers)
+    assert public_response.status_code == 200
+
+    usage = client.get("/api/v1/admin/api-usage", headers=headers)
+    assert usage.status_code == 200
+    assert any(item["endpoint"] == "/api/v1/companies" for item in usage.json()["items"])
+
+    commercial = client.get("/api/v1/admin/commercial-dashboard", headers=headers)
+    assert commercial.status_code == 200
+    commercial_payload = commercial.json()
+    assert commercial_payload["dashboard"]["api_consumption"]["requests_today"] >= 1
+    assert commercial_payload["dashboard"]["plan_distribution"]["research"] >= 1
+    assert commercial_payload["subscriptions"]
+    assert commercial_payload["invoices"]
+
+    rotated = client.post(
+        f"/api/v1/admin/api-keys/{created_payload['id']}/rotate",
+        headers=headers,
+    )
+    assert rotated.status_code == 200
+    rotated_payload = rotated.json()
+    assert rotated_payload["api_key"].startswith("apip_live_")
+    assert rotated_payload["api_key"] != created_payload["api_key"]
+
+    old_key_response = client.get("/api/v1/companies", headers=public_headers)
+    assert old_key_response.status_code == 401
+
+    new_headers = {"X-API-Key": rotated_payload["api_key"]}
+    assert client.get("/api/v1/companies", headers=new_headers).status_code == 200
+
+    revoked = client.post(
+        f"/api/v1/admin/api-keys/{created_payload['id']}/revoke",
+        headers=headers,
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["status"] == "revoked"
+    assert client.get("/api/v1/companies", headers=new_headers).status_code == 401
+
+
+def test_commercial_plans_and_subscription_records_are_exposed_to_admins():
+    client = build_client()
+    headers = auth_headers(client)
+
+    plans = client.get("/api/v1/admin/plans", headers=headers)
+    assert plans.status_code == 200
+    plan_keys = {item["key"] for item in plans.json()["items"]}
+    assert plan_keys == {"community", "research", "professional", "enterprise"}
+
+    key_response = client.post(
+        "/api/v1/admin/api-keys",
+        headers=headers,
+        json={"name": "Legacy Pro Alias", "plan": "pro"},
+    )
+    assert key_response.status_code == 201
+    assert key_response.json()["plan"] == "professional"
+
+    subscriptions = client.get("/api/v1/admin/subscriptions", headers=headers)
+    assert subscriptions.status_code == 200
+    assert any(item["plan"] == "professional" for item in subscriptions.json()["items"])
+
+    invoices = client.get("/api/v1/admin/invoices", headers=headers)
+    assert invoices.status_code == 200
+    assert any(item["payment_provider"] == "manual" for item in invoices.json()["items"])
+
+
 def test_public_api_requires_api_key():
     client = build_client()
 

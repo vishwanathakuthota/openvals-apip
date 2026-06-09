@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type AdminItem = Record<string, string | number | null | undefined>;
+type AdminItem = Record<string, unknown>;
 type SourceMetric = AdminItem & {
   id: string;
   company: string;
@@ -112,6 +112,23 @@ type AutonomousDashboard = {
   };
 };
 type DashboardCounts = Record<string, number>;
+type CommercialDashboard = {
+  revenue: {
+    monthly_recurring_revenue: number;
+    draft_invoice_amount: number;
+    invoice_count: number;
+  };
+  active_users: {
+    active_api_keys: number;
+    active_subscriptions: number;
+  };
+  api_consumption: {
+    requests_today: number;
+    total_requests: number;
+    top_endpoints: { endpoint: string; request_count: number }[];
+  };
+  plan_distribution: Record<string, number>;
+};
 
 const resources = [
   { key: "companies", label: "Companies", fields: ["name", "ticker", "website_url", "status"] },
@@ -129,6 +146,7 @@ export function AdminPortal() {
   const [active, setActive] = useState<(typeof resources)[number]["key"]>("companies");
   const [items, setItems] = useState<Record<string, AdminItem[]>>({});
   const [counts, setCounts] = useState<DashboardCounts>({});
+  const [commercialDashboard, setCommercialDashboard] = useState<CommercialDashboard | null>(null);
   const [sourceMetrics, setSourceMetrics] = useState<SourceMetric[]>([]);
   const [lineage, setLineage] = useState<LineageRecord[]>([]);
   const [companyValidations, setCompanyValidations] = useState<CompanyValidation[]>([]);
@@ -226,6 +244,7 @@ export function AdminPortal() {
       )
     ]);
     setCounts(dashboard.counts ?? {});
+    setCommercialDashboard(dashboard.commercial ?? null);
     setSourceMetrics(metrics.items ?? []);
     setLineage(lineageResponse.items ?? []);
     setCompanyValidations(validationsResponse.items ?? []);
@@ -281,10 +300,10 @@ export function AdminPortal() {
     }
   }
 
-  async function action(path: string, success: string) {
+  async function action(path: string, success: string, method = "PATCH") {
     setBusy(true);
     try {
-      await adminFetch(path, { method: "PATCH" });
+      await adminFetch(path, { method });
       setMessage(success);
       await refreshAll();
     } catch (error) {
@@ -292,6 +311,23 @@ export function AdminPortal() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function rotateApiKey(id: string) {
+    setBusy(true);
+    try {
+      const data = await adminFetch(`api-keys/${id}/rotate`, { method: "POST" });
+      setMessage(`Rotated API key: ${data.api_key}`);
+      await refreshAll();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "API key rotation failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeApiKey(id: string) {
+    await action(`api-keys/${id}/revoke`, "API key revoked", "POST");
   }
 
   async function uploadCsv() {
@@ -474,6 +510,7 @@ export function AdminPortal() {
             </div>
           ))}
         </div>
+        <CommercialDashboardCards dashboard={commercialDashboard} />
         <Badge>{message}</Badge>
       </section>
 
@@ -510,6 +547,8 @@ export function AdminPortal() {
               items={items[config.key] ?? []}
               onApproveSource={(id) => action(`sources/${id}/approve`, "Source approved")}
               onRejectSource={(id) => action(`sources/${id}/reject`, "Source rejected")}
+              onRevokeApiKey={revokeApiKey}
+              onRotateApiKey={rotateApiKey}
               onUpdate={(id, payload) => updateItem(config.key, id, payload)}
               resource={config.key}
             />
@@ -649,6 +688,8 @@ function AdminTable({
   items,
   onApproveSource,
   onRejectSource,
+  onRevokeApiKey,
+  onRotateApiKey,
   onUpdate,
   resource
 }: {
@@ -656,6 +697,8 @@ function AdminTable({
   items: AdminItem[];
   onApproveSource: (id: string) => void;
   onRejectSource: (id: string) => void;
+  onRevokeApiKey: (id: string) => void;
+  onRotateApiKey: (id: string) => void;
   onUpdate: (id: string, payload: Record<string, string>) => void;
   resource: string;
 }) {
@@ -685,9 +728,21 @@ function AdminTable({
                 <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: "active" })} size="sm">
                   Active
                 </Button>
-                <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: inactiveStatus })} size="sm" variant="outline">
-                  {resource === "api-keys" ? "Revoke" : "Archive"}
-                </Button>
+                {resource !== "api-keys" ? (
+                  <Button disabled={busy} onClick={() => onUpdate(String(item.id), { status: inactiveStatus })} size="sm" variant="outline">
+                    Archive
+                  </Button>
+                ) : null}
+                {resource === "api-keys" ? (
+                  <>
+                    <Button disabled={busy} onClick={() => onRotateApiKey(String(item.id))} size="sm" variant="outline">
+                      Rotate
+                    </Button>
+                    <Button disabled={busy} onClick={() => onRevokeApiKey(String(item.id))} size="sm" variant="outline">
+                      Revoke Now
+                    </Button>
+                  </>
+                ) : null}
                 {resource === "sources" ? (
                   <>
                     <Button disabled={busy} onClick={() => onApproveSource(String(item.id))} size="sm">
@@ -705,6 +760,50 @@ function AdminTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function CommercialDashboardCards({ dashboard }: { dashboard: CommercialDashboard | null }) {
+  if (!dashboard) {
+    return null;
+  }
+  const cards = [
+    {
+      label: "Monthly recurring revenue",
+      value: `$${dashboard.revenue.monthly_recurring_revenue.toLocaleString()}`
+    },
+    {
+      label: "Draft invoices",
+      value: `$${dashboard.revenue.draft_invoice_amount.toLocaleString()}`
+    },
+    {
+      label: "Active API keys",
+      value: dashboard.active_users.active_api_keys.toLocaleString()
+    },
+    {
+      label: "Requests today",
+      value: dashboard.api_consumption.requests_today.toLocaleString()
+    }
+  ];
+  return (
+    <div className="grid gap-3 md:grid-cols-4">
+      {cards.map((card) => (
+        <div className="rounded-md border border-border bg-background p-3" key={card.label}>
+          <span className="text-xs text-muted-foreground">{card.label}</span>
+          <strong className="block text-xl">{card.value}</strong>
+        </div>
+      ))}
+      <div className="grid gap-2 rounded-md border border-border bg-background p-3 md:col-span-4">
+        <span className="text-xs text-muted-foreground">Plan distribution</span>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(dashboard.plan_distribution).map(([plan, count]) => (
+            <Badge key={plan}>
+              {plan}: {count}
+            </Badge>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
