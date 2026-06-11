@@ -67,9 +67,15 @@ export function fetchCollection(resource: "companies" | "industries" | "countrie
   return apiFetch<CollectionResponse<Entity>>(resource, fallbackCollections[resource]);
 }
 
-export async function fetchEntity(resource: "companies" | "industries" | "countries" | "models", id: string) {
+export async function fetchEntity(
+  resource: "companies" | "industries" | "countries" | "models",
+  id: string
+): Promise<Entity | null> {
   const collection = fallbackCollections[resource];
-  const fallback = collection.items.find((item) => item.id === id) ?? collection.items[0];
+  const fallback = collection.items.find((item) => item.id === id || item.slug === id);
+  if (!fallback) {
+    return apiFetch<Entity | null>(`${resource}/${id}`, null);
+  }
   return apiFetch<Entity>(`${resource}/${id}`, {
     ...fallback,
     metrics: fallbackMetrics.filter((metric) => metric.entity_id === fallback.id)

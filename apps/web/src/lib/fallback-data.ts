@@ -17,6 +17,7 @@ export const fallbackCollections: Record<"companies" | "industries" | "countries
       { id: "company_openai", name: "OpenAI", slug: "openai", ticker: null, status: "active" },
       { id: "company_anthropic", name: "Anthropic", slug: "anthropic", ticker: null, status: "active" },
       { id: "company_google", name: "Google", slug: "google", ticker: "GOOGL", status: "active" },
+      { id: "company_alphabet", name: "Alphabet", slug: "alphabet", ticker: "GOOGL", status: "active" },
       { id: "company_microsoft", name: "Microsoft", slug: "microsoft", ticker: "MSFT", status: "active" },
       { id: "company_meta", name: "Meta", slug: "meta", ticker: "META", status: "active" },
       { id: "company_amazon", name: "Amazon", slug: "amazon", ticker: "AMZN", status: "active" },
