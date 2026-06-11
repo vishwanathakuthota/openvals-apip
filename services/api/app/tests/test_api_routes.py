@@ -251,6 +251,32 @@ def test_seeded_local_development_api_key_can_access_public_api():
     assert response.json()["items"]
 
 
+def test_company_detail_routes_resolve_requested_company_slugs():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    expected = {
+        "microsoft": "Microsoft",
+        "nvidia": "NVIDIA",
+        "alphabet": "Alphabet",
+    }
+    for slug, name in expected.items():
+        response = client.get(f"/api/v1/companies/{slug}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["slug"] == slug
+        assert response.json()["name"] == name
+
+
+def test_missing_company_detail_returns_not_found():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/companies/not-a-company", headers=headers)
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "company_not_found"
+
+
 def test_free_api_key_daily_rate_limit_is_enforced():
     client = build_client()
     headers = api_key_headers(client, plan="free")

@@ -127,6 +127,17 @@ def seed_database(db: Session) -> None:
             website_url="https://google.com",
             status="active",
         ),
+        "alphabet": get_or_create(
+            db,
+            Company,
+            "slug",
+            "alphabet",
+            name="Alphabet",
+            ticker="GOOGL",
+            headquarters_country_id=countries["US"].id,
+            website_url="https://abc.xyz",
+            status="active",
+        ),
         "microsoft": get_or_create(
             db,
             Company,
