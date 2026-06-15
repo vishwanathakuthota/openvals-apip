@@ -194,6 +194,19 @@ def test_ai_economics_company_report_and_missing_company_handling():
     assert missing.status_code == 404
 
 
+def test_company_detail_routes_support_slug_lookup_for_public_pages():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/companies/microsoft", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Microsoft"
+    assert payload["slug"] == "microsoft"
+    assert {metric["metric_key"] for metric in payload["metrics"]} >= {"ai_revenue", "ai_spend"}
+
+
 def test_admin_routes_require_admin_authentication():
     client = build_client()
 

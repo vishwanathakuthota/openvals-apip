@@ -1,6 +1,7 @@
 import { fallbackAiEconomics, fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
 import type {
   AiEconomicsDashboard,
+  AiEconomicsReport,
   AiProfitabilityScore,
   CollectionResponse,
   Entity,
@@ -78,7 +79,8 @@ export function fetchCollection(resource: "companies" | "industries" | "countrie
 
 export async function fetchEntity(resource: "companies" | "industries" | "countries" | "models", id: string) {
   const collection = fallbackCollections[resource];
-  const fallback = collection.items.find((item) => item.id === id) ?? collection.items[0];
+  const fallback =
+    collection.items.find((item) => item.id === id || item.slug === id) ?? collection.items[0];
   return apiFetch<Entity>(`${resource}/${id}`, {
     ...fallback,
     metrics: fallbackMetrics.filter((metric) => metric.entity_id === fallback.id)
@@ -101,4 +103,11 @@ export function fetchAiProfitability() {
     items: fallbackAiEconomics.ai_profitability,
     next_cursor: null
   });
+}
+
+export function fetchAiEconomicsReport(companySlug: string) {
+  const fallback =
+    fallbackAiEconomics.intelligence_reports.find((report) => report.company_slug === companySlug) ??
+    fallbackAiEconomics.intelligence_reports[0];
+  return apiFetch<AiEconomicsReport>(`ai-economics/reports/${companySlug}`, fallback);
 }
