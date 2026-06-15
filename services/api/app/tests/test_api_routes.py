@@ -135,6 +135,78 @@ def test_ai_reality_index_endpoint_filters_by_entity_type():
     assert {item["entity_type"] for item in items} == {"industry"}
 
 
+def test_ai_economics_endpoints_return_ten_company_scope_and_metadata():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    revenue = client.get("/api/v1/ai-revenue", headers=headers)
+    investment = client.get("/api/v1/ai-investment", headers=headers)
+    profitability = client.get("/api/v1/ai-profitability", headers=headers)
+    dashboard = client.get("/api/v1/ai-economics", headers=headers)
+
+    assert revenue.status_code == 200
+    assert investment.status_code == 200
+    assert profitability.status_code == 200
+    assert dashboard.status_code == 200
+    assert len(revenue.json()["items"]) == 10
+    assert len(investment.json()["items"]) == 10
+    assert len(profitability.json()["items"]) == 10
+    assert dashboard.json()["summary"]["companies_tracked"] == 10
+
+    first_revenue = revenue.json()["items"][0]
+    assert first_revenue["ai_revenue_estimate"] > 0
+    assert first_revenue["confidence_score"] > 0
+    assert first_revenue["trust_score"] > 0
+    assert first_revenue["source_count"] >= 1
+    assert first_revenue["last_updated"]
+    assert first_revenue["sources"]
+
+    first_investment = investment.json()["items"][0]
+    assert first_investment["ai_investment"] > 0
+    assert first_investment["ai_rd_spend"] > 0
+    assert first_investment["infrastructure_spend"] > 0
+
+    leaderboard = profitability.json()["items"]
+    assert leaderboard[0]["score"] >= leaderboard[-1]["score"]
+    assert leaderboard[0]["components"]["revenue_efficiency"] >= 0
+    assert leaderboard[0]["formula"].startswith("25% Revenue Efficiency")
+
+
+def test_ai_economics_company_report_and_missing_company_handling():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/ai-economics/reports/microsoft", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company"] == "Microsoft"
+    assert payload["ai_profitability_score"] > 0
+    assert payload["evidence_sections"] == [
+        "Revenue",
+        "Earnings Calls",
+        "Investor Presentations",
+        "SEC Filings",
+        "Public AI Disclosures",
+    ]
+
+    missing = client.get("/api/v1/ai-economics/reports/not-a-company", headers=headers)
+    assert missing.status_code == 404
+
+
+def test_company_detail_routes_support_slug_lookup_for_public_pages():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/companies/microsoft", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Microsoft"
+    assert payload["slug"] == "microsoft"
+    assert {metric["metric_key"] for metric in payload["metrics"]} >= {"ai_revenue", "ai_spend"}
+
+
 def test_admin_routes_require_admin_authentication():
     client = build_client()
 

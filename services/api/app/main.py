@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin,
+    ai_economics,
     auth,
     companies,
     confidence,
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(models.router, prefix="/api/v1", tags=["models"])
     app.include_router(metrics.router, prefix="/api/v1", tags=["metrics"])
     app.include_router(confidence.router, prefix="/api/v1", tags=["confidence"])
+    app.include_router(ai_economics.router, prefix="/api/v1", tags=["ai-economics"])
     app.include_router(roi_calculator.router, prefix="/api/v1", tags=["roi-calculator"])
     app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])

@@ -1,5 +1,15 @@
-import { fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
-import type { CollectionResponse, Entity, EntityType, MetricValue, RealityIndexItem, Scoreboard } from "@/types/api";
+import { fallbackAiEconomics, fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
+import type {
+  AiEconomicsDashboard,
+  AiEconomicsReport,
+  AiProfitabilityScore,
+  CollectionResponse,
+  Entity,
+  EntityType,
+  MetricValue,
+  RealityIndexItem,
+  Scoreboard
+} from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
 const PUBLIC_API_KEY = process.env.APIP_PUBLIC_API_KEY ?? process.env.WEB_PUBLIC_API_KEY;
@@ -69,7 +79,8 @@ export function fetchCollection(resource: "companies" | "industries" | "countrie
 
 export async function fetchEntity(resource: "companies" | "industries" | "countries" | "models", id: string) {
   const collection = fallbackCollections[resource];
-  const fallback = collection.items.find((item) => item.id === id) ?? collection.items[0];
+  const fallback =
+    collection.items.find((item) => item.id === id || item.slug === id) ?? collection.items[0];
   return apiFetch<Entity>(`${resource}/${id}`, {
     ...fallback,
     metrics: fallbackMetrics.filter((metric) => metric.entity_id === fallback.id)
@@ -81,4 +92,22 @@ export function fetchMetrics() {
     items: fallbackMetrics,
     next_cursor: null
   });
+}
+
+export function fetchAiEconomics() {
+  return apiFetch<AiEconomicsDashboard>("ai-economics", fallbackAiEconomics);
+}
+
+export function fetchAiProfitability() {
+  return apiFetch<CollectionResponse<AiProfitabilityScore>>("ai-profitability", {
+    items: fallbackAiEconomics.ai_profitability,
+    next_cursor: null
+  });
+}
+
+export function fetchAiEconomicsReport(companySlug: string) {
+  const fallback =
+    fallbackAiEconomics.intelligence_reports.find((report) => report.company_slug === companySlug) ??
+    fallbackAiEconomics.intelligence_reports[0];
+  return apiFetch<AiEconomicsReport>(`ai-economics/reports/${companySlug}`, fallback);
 }

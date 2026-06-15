@@ -11,7 +11,8 @@ import {
   Info,
   Landmark,
   Orbit,
-  ShieldCheck
+  ShieldCheck,
+  TrendingUp
 } from "lucide-react";
 
 import "../styles/globals.css";
@@ -55,6 +56,8 @@ const navItems = [
   { href: "/industries", label: "Industries", icon: Landmark },
   { href: "/countries", label: "Countries", icon: Globe2 },
   { href: "/models", label: "Models", icon: ShieldCheck },
+  { href: "/ai-economics", label: "AI Economics", icon: TrendingUp },
+  { href: "/ai-profitability", label: "AI Profitability", icon: BarChart3 },
   { href: "/reality-index", label: "AI Reality Index", icon: Orbit },
   { href: "/calculator", label: "ROI Calculator", icon: Calculator },
   { href: "/developers", label: "Developers", icon: Code2 }

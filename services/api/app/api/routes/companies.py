@@ -31,8 +31,10 @@ def get_company(
 ):
     company = db.get(Company, company_id)
     if not company:
+        company = db.scalar(select(Company).where(Company.slug == company_id))
+    if not company:
         raise HTTPException(status_code=404, detail={"code": "company_not_found"})
-    return {**serialize_company(company), "metrics": entity_metrics(db, "company", company_id)}
+    return {**serialize_company(company), "metrics": entity_metrics(db, "company", company.id)}
 
 
 @router.get("/companies/{company_id}/metrics")
@@ -41,7 +43,12 @@ def get_company_metrics(
     _: dict[str, str] = Depends(require_api_key),
     db: Session = Depends(get_db),
 ):
-    return {"items": entity_metrics(db, "company", company_id)}
+    company = db.get(Company, company_id)
+    if not company:
+        company = db.scalar(select(Company).where(Company.slug == company_id))
+    if not company:
+        raise HTTPException(status_code=404, detail={"code": "company_not_found"})
+    return {"items": entity_metrics(db, "company", company.id)}
 
 
 def serialize_company(company: Company) -> dict[str, object]:
