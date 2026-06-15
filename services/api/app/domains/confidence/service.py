@@ -10,6 +10,8 @@ SOURCE_RELIABILITY_SCORES = {
     "investor_presentation": 80,
     "analyst_estimate": 70,
     "industry_report": 65,
+    "market_data": 85,
+    "investor_relations": 85,
     "news_article": 50,
     "community_estimate": 30,
 }

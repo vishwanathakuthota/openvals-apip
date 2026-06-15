@@ -126,6 +126,8 @@ class Source(TimestampMixin, Base):
     url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     publisher: Mapped[str | None] = mapped_column(String(255), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    freshness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reliability_score: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
 
@@ -142,6 +144,8 @@ class SourceMetric(TimestampMixin, Base):
     source_url: Mapped[str] = mapped_column(String(1000))
     source_type: Mapped[str] = mapped_column(String(120), index=True)
     confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    freshness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     methodology_note: Mapped[str] = mapped_column(Text)
     created_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     approved_status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
@@ -152,6 +156,26 @@ class SourceMetric(TimestampMixin, Base):
     source: Mapped[Source] = relationship()
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_user_id])
     reviewed_by: Mapped[User | None] = relationship(foreign_keys=[reviewed_by_user_id])
+
+
+class DataAcquisitionRun(Base):
+    __tablename__ = "data_acquisition_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id"), nullable=True, index=True
+    )
+    connector: Mapped[str] = mapped_column(String(120), index=True)
+    source_name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(40), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    records_found: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+
+    company: Mapped[Company | None] = relationship()
 
 
 class MetricValue(TimestampMixin, Base):

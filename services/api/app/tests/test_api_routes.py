@@ -1,13 +1,17 @@
 from collections.abc import Generator
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
-from app.db.models import Base
+from app.db.models import Base, DataAcquisitionRun, SourceMetric
 from app.db.seed import seed_database
+from app.domains.data_acquisition.connectors import AcquiredMetric, ConnectorResult
+from app.domains.data_acquisition.service import data_acquisition_status, run_acquisition
 from app.main import app
 
 
@@ -51,6 +55,43 @@ def api_key_headers(client: TestClient, plan: str = "pro") -> dict[str, str]:
     )
     assert response.status_code == 201
     return {"X-API-Key": response.json()["api_key"]}
+
+
+class FixtureRevenueConnector:
+    name = "fixture_revenue"
+    source_name = "Fixture SEC Revenue"
+
+    def collect(self, target, now: datetime | None = None) -> ConnectorResult:
+        retrieved_at = now or datetime(2026, 6, 15, 9, 0, tzinfo=UTC)
+        metric = AcquiredMetric(
+            company_slug=target.slug,
+            metric_key="revenue",
+            value=Decimal("1000000000"),
+            unit="usd",
+            currency="USD",
+            period_start=date(2025, 1, 1),
+            period_end=date(2025, 12, 31),
+            source_name=f"Fixture SEC revenue for {target.name}",
+            source_type="sec_filing",
+            source_url=f"https://data.sec.gov/fixture/{target.cik}",
+            publisher="SEC EDGAR",
+            published_at=datetime(2026, 2, 1, tzinfo=UTC),
+            retrieved_at=retrieved_at,
+            methodology_note=(
+                "Fixture connector value representing an SEC-sourced revenue fact with "
+                "retrieval timestamp and source lineage."
+            ),
+            raw_payload={"fixture": True, "ticker": target.ticker},
+        )
+        return ConnectorResult(
+            connector=self.name,
+            source_name=self.source_name,
+            target=target,
+            retrieved_at=retrieved_at,
+            metrics=[metric],
+            source_url=metric.source_url,
+            raw_payload={"fixture": True},
+        )
 
 
 def test_backend_v1_rest_endpoints_return_seeded_data():
@@ -280,6 +321,38 @@ def test_metric_responses_include_confidence_engine_fields():
     assert "methodology_note" in metric
     assert metric["source_count"] >= 1
     assert metric["sources"]
+
+
+def test_realtime_data_acquisition_persists_lineage_freshness_and_metrics():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(bind=engine)
+    Base.metadata.create_all(engine)
+    with TestingSessionLocal() as db:
+        seed_database(db)
+        result = run_acquisition(db, connectors=[FixtureRevenueConnector()])
+
+        assert result["status"] == "completed"
+        assert result["metrics"] == 3
+        assert db.scalars(select(DataAcquisitionRun)).all()
+
+        source_metrics = db.scalars(
+            select(SourceMetric).where(SourceMetric.metric_type == "revenue")
+        ).all()
+        assert len(source_metrics) == 3
+        assert all(item.retrieved_at for item in source_metrics)
+        assert all(item.freshness_score is not None for item in source_metrics)
+
+        status_payload = data_acquisition_status(db)
+        assert status_payload["refresh_interval_seconds"] == 1800
+        assert {target["slug"] for target in status_payload["targets"]} >= {
+            "microsoft",
+            "nvidia",
+            "alphabet",
+        }
 
 
 def test_admin_csv_import_review_approval_and_audit_flow():
