@@ -130,6 +130,50 @@ class Source(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(40), default="approved", index=True)
 
 
+class IngestionRun(Base):
+    __tablename__ = "ingestion_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    source_type: Mapped[str] = mapped_column(String(120), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="running", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    records_created: Mapped[int] = mapped_column(Integer, default=0)
+    records_failed: Mapped[int] = mapped_column(Integer, default=0)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class LiveDataRecord(TimestampMixin, Base):
+    __tablename__ = "live_data_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_pk)
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=True)
+    company_id: Mapped[str | None] = mapped_column(
+        ForeignKey("companies.id"), nullable=True, index=True
+    )
+    company_slug: Mapped[str] = mapped_column(String(255), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    metric_type: Mapped[str] = mapped_column(String(120), index=True)
+    value_numeric: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    fiscal_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fiscal_period: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_url: Mapped[str] = mapped_column(String(1000))
+    source_type: Mapped[str] = mapped_column(String(120), index=True)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    freshness_score: Mapped[int] = mapped_column(Integer)
+    confidence_score: Mapped[float] = mapped_column(Numeric(5, 2))
+    raw_payload_hash: Mapped[str] = mapped_column(String(64), index=True)
+    raw_payload_snapshot: Mapped[str] = mapped_column(Text)
+    ingestion_status: Mapped[str] = mapped_column(String(40), default="success", index=True)
+    filing_accession: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    filing_form: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    run: Mapped[IngestionRun | None] = relationship()
+    company: Mapped[Company | None] = relationship()
+
+
 class SourceMetric(TimestampMixin, Base):
     __tablename__ = "source_metrics"
 

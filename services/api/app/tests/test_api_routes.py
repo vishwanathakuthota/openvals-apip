@@ -85,6 +85,18 @@ def test_api_v1_health_endpoint_reports_service_status():
     assert set(payload["checks"]) == {"api", "postgres", "redis"}
 
 
+def test_ingestion_status_endpoint_reports_scheduler_configuration():
+    client = build_client()
+
+    response = client.get("/api/v1/ingestion/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["interval_minutes"] == 30
+    assert payload["scheduler_task"] == "apip.ingest_live_data"
+    assert payload["yahoo_finance_enabled"] is True
+
+
 def test_confidence_endpoint_returns_metric_confidence():
     client = build_client()
     headers = api_key_headers(client)
@@ -205,6 +217,33 @@ def test_company_detail_routes_support_slug_lookup_for_public_pages():
     assert payload["name"] == "Microsoft"
     assert payload["slug"] == "microsoft"
     assert {metric["metric_key"] for metric in payload["metrics"]} >= {"ai_revenue", "ai_spend"}
+
+
+def test_admin_ingestion_status_and_manual_trigger_are_protected_and_callable(monkeypatch):
+    client = build_client()
+    headers = auth_headers(client)
+
+    def fake_run_live_ingestion(_db):
+        return {
+            "id": "run_test",
+            "source_type": "live_data",
+            "status": "completed",
+            "started_at": "2026-06-15T00:00:00+00:00",
+            "completed_at": "2026-06-15T00:01:00+00:00",
+            "records_created": 7,
+            "records_failed": 0,
+            "message": "mocked live ingestion completed",
+        }
+
+    monkeypatch.setattr("app.api.routes.admin.run_live_ingestion", fake_run_live_ingestion)
+
+    status_response = client.get("/api/v1/admin/ingestion/status", headers=headers)
+    trigger_response = client.post("/api/v1/admin/ingestion/run", headers=headers)
+
+    assert status_response.status_code == 200
+    assert status_response.json()["scheduler_task"] == "apip.ingest_live_data"
+    assert trigger_response.status_code == 200
+    assert trigger_response.json()["records_created"] == 7
 
 
 def test_admin_routes_require_admin_authentication():

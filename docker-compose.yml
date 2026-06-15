@@ -75,6 +75,27 @@ services:
       redis:
         condition: service_healthy
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env.example
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command:
+      [
+        "celery",
+        "-A",
+        "app.workers.celery_app",
+        "beat",
+        "--loglevel=info",
+        "--schedule=/tmp/apip-celerybeat-schedule"
+      ]
+
   web:
     build:
       context: .

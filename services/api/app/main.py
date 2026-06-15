@@ -10,6 +10,7 @@ from app.api.routes import (
     countries,
     health,
     industries,
+    ingestion,
     metrics,
     models,
     roi_calculator,
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router, prefix="/api/v1", tags=["metrics"])
     app.include_router(confidence.router, prefix="/api/v1", tags=["confidence"])
     app.include_router(ai_economics.router, prefix="/api/v1", tags=["ai-economics"])
+    app.include_router(ingestion.router, prefix="/api/v1", tags=["ingestion"])
     app.include_router(roi_calculator.router, prefix="/api/v1", tags=["roi-calculator"])
     app.include_router(sources.router, prefix="/api/v1", tags=["sources"])
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])

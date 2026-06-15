@@ -14,6 +14,8 @@ from app.db.models import (
     ConfidenceScore,
     Country,
     Industry,
+    IngestionRun,
+    LiveDataRecord,
     MetricDefinition,
     MetricSource,
     MetricValue,
@@ -25,6 +27,11 @@ from app.db.seed import seed_database
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
+from app.domains.ingestion.service import (
+    ingestion_run_payload,
+    ingestion_status,
+    run_live_ingestion,
+)
 
 router = APIRouter()
 
@@ -34,6 +41,7 @@ def admin_dashboard(
     _: dict[str, str] = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    last_ingestion_run = db.scalar(select(IngestionRun).order_by(IngestionRun.started_at.desc()))
     return {
         "counts": {
             "companies": len(db.scalars(select(Company)).all()),
@@ -48,7 +56,9 @@ def admin_dashboard(
             ),
             "audit_logs": len(db.scalars(select(AuditLog)).all()),
             "api_keys": len(db.scalars(select(ApiKey)).all()),
-        }
+            "live_data_records": len(db.scalars(select(LiveDataRecord)).all()),
+        },
+        "ingestion": ingestion_run_payload(last_ingestion_run) if last_ingestion_run else None,
     }
 
 
@@ -465,6 +475,32 @@ def admin_seed_import(
     )
     db.commit()
     return {"status": "completed"}
+
+
+@router.get("/ingestion/status")
+def admin_ingestion_status(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return ingestion_status(db)
+
+
+@router.post("/ingestion/run")
+def admin_run_ingestion(
+    claims: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    result = run_live_ingestion(db)
+    write_audit_log(
+        db,
+        actor_user_id=claims["sub"],
+        action="live_ingestion.triggered",
+        target_type="ingestion",
+        target_id=str(result.get("id")),
+        metadata={"status": result.get("status")},
+    )
+    db.commit()
+    return result
 
 
 @router.post("/imports/csv", status_code=status.HTTP_201_CREATED)

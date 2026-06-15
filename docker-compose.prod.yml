@@ -68,6 +68,28 @@ services:
     networks:
       - apip_private
 
+  scheduler:
+    image: ${APIP_IMAGE_REGISTRY:-ghcr.io/openvals}/apip-worker:${IMAGE_TAG:?set IMAGE_TAG}
+    command:
+      [
+        "celery",
+        "-A",
+        "app.workers.celery_app",
+        "beat",
+        "--loglevel=info",
+        "--schedule=/tmp/apip-celerybeat-schedule"
+      ]
+    env_file:
+      - ${APIP_ENV_FILE:-.env}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - apip_private
+
   web:
     image: ${APIP_IMAGE_REGISTRY:-ghcr.io/openvals}/apip-web:${IMAGE_TAG:?set IMAGE_TAG}
     environment:

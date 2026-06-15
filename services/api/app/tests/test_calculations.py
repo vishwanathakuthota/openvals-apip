@@ -25,6 +25,8 @@ def test_source_reliability_scores_match_prd():
     assert source_reliability_score("industry_report") == 65
     assert source_reliability_score("news_article") == 50
     assert source_reliability_score("community_estimate") == 30
+    assert source_reliability_score("sec_edgar") == 100
+    assert source_reliability_score("yahoo_finance") == 70
 
 
 def test_freshness_scores_match_prd_buckets():
