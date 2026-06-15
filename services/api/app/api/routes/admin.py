@@ -13,6 +13,7 @@ from app.db.models import (
     Company,
     ConfidenceScore,
     Country,
+    DataAcquisitionRun,
     Industry,
     MetricDefinition,
     MetricSource,
@@ -23,6 +24,10 @@ from app.db.models import (
 )
 from app.db.seed import seed_database
 from app.domains.confidence.service import score_metric_confidence, source_reliability_score
+from app.domains.data_acquisition.service import (
+    data_acquisition_status,
+    refresh_realtime_company_metrics,
+)
 from app.domains.etl.csv_importer import import_financial_metrics_csv, write_audit_log
 from app.domains.identity.api_keys import api_key_payload, generate_api_key, normalize_plan
 
@@ -48,8 +53,25 @@ def admin_dashboard(
             ),
             "audit_logs": len(db.scalars(select(AuditLog)).all()),
             "api_keys": len(db.scalars(select(ApiKey)).all()),
+            "data_acquisition_runs": len(db.scalars(select(DataAcquisitionRun)).all()),
         }
     }
+
+
+@router.get("/data-acquisition/status")
+def admin_data_acquisition_status(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return data_acquisition_status(db)
+
+
+@router.post("/data-acquisition/refresh")
+def admin_refresh_data_acquisition(
+    _: dict[str, str] = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return refresh_realtime_company_metrics(db)
 
 
 @router.get("/api-keys")
@@ -745,6 +767,10 @@ def source_metric_payload(source_metric: SourceMetric) -> dict[str, object]:
         "source_url": source_metric.source_url,
         "source_type": source_metric.source_type,
         "confidence_score": float(source_metric.confidence_score),
+        "retrieved_at": source_metric.retrieved_at.isoformat()
+        if source_metric.retrieved_at
+        else None,
+        "freshness_score": source_metric.freshness_score,
         "created_by": source_metric.created_by.full_name,
         "approved_status": source_metric.approved_status,
         "last_updated": source_metric.updated_at.isoformat() if source_metric.updated_at else None,
@@ -757,6 +783,10 @@ def source_metric_payload(source_metric: SourceMetric) -> dict[str, object]:
             "published_at": source_metric.source.published_at.isoformat()
             if source_metric.source.published_at
             else None,
+            "retrieved_at": source_metric.source.retrieved_at.isoformat()
+            if source_metric.source.retrieved_at
+            else None,
+            "freshness_score": source_metric.source.freshness_score,
         },
     }
 
@@ -823,6 +853,8 @@ def source_payload(source: Source) -> dict[str, object]:
         "url": source.url,
         "publisher": source.publisher,
         "published_at": source.published_at.isoformat() if source.published_at else None,
+        "retrieved_at": source.retrieved_at.isoformat() if source.retrieved_at else None,
+        "freshness_score": source.freshness_score,
         "reliability_score": source.reliability_score,
         "status": source.status,
     }

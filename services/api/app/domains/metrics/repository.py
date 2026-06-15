@@ -32,6 +32,10 @@ def metric_payload(metric: MetricValue) -> dict[str, object]:
             "published_at": link.source.published_at.isoformat()
             if link.source.published_at
             else None,
+            "retrieved_at": link.source.retrieved_at.isoformat()
+            if link.source.retrieved_at
+            else None,
+            "freshness_score": link.source.freshness_score,
             "reliability_score": link.source.reliability_score,
             "evidence_note": link.evidence_note,
         }

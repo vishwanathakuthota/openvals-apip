@@ -33,6 +33,9 @@ def serialize_source(source: Source) -> dict[str, object]:
         "source_type": source.source_type,
         "url": source.url,
         "publisher": source.publisher,
+        "published_at": source.published_at.isoformat() if source.published_at else None,
+        "retrieved_at": source.retrieved_at.isoformat() if source.retrieved_at else None,
+        "freshness_score": source.freshness_score,
         "reliability_score": source.reliability_score,
         "status": source.status,
     }
