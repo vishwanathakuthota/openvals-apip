@@ -93,3 +93,85 @@ export type CollectionResponse<T = Entity> = {
   items: T[];
   next_cursor: string | null;
 };
+
+export type EconomicsSource = {
+  id: string;
+  title: string;
+  source_type: string;
+  publisher?: string | null;
+  url?: string | null;
+  published_at?: string | null;
+  reliability_score: number;
+};
+
+export type AiEconomicsBase = {
+  company: string;
+  company_slug: string;
+  ticker?: string | null;
+  confidence: Confidence;
+  confidence_score: number;
+  confidence_label: string;
+  trust_score: number;
+  trust_label: string;
+  source_count: number;
+  sources: EconomicsSource[];
+  last_updated: string;
+  methodology_note: string;
+};
+
+export type AiRevenueEstimate = AiEconomicsBase & {
+  input_revenue: number;
+  ai_revenue_estimate: number;
+  ai_revenue_share: number;
+  inputs: string[];
+};
+
+export type AiInvestmentEstimate = AiEconomicsBase & {
+  ai_investment: number;
+  ai_rd_spend: number;
+  infrastructure_spend: number;
+  investment_intensity: number;
+};
+
+export type AiProfitabilityScore = AiEconomicsBase & {
+  score: number;
+  rating: string;
+  classification: string;
+  components: {
+    revenue_efficiency: number;
+    ai_revenue_growth: number;
+    ai_margin_proxy: number;
+    infrastructure_roi: number;
+    capital_efficiency: number;
+  };
+  formula: string;
+};
+
+export type AiEconomicsReport = AiEconomicsBase & {
+  ai_revenue_estimate: number;
+  ai_investment: number;
+  ai_rd_spend: number;
+  infrastructure_spend: number;
+  ai_profitability_score: number;
+  classification: string;
+  executive_summary: string;
+  evidence_sections: string[];
+};
+
+export type AiEconomicsDashboard = {
+  summary: {
+    companies_tracked: number;
+    estimated_ai_revenue: number;
+    estimated_ai_investment: number;
+    estimated_ai_profit: number;
+    average_profitability_score: number;
+    average_confidence_score: number;
+    source_count: number;
+    last_updated: string;
+    methodology_note: string;
+  };
+  ai_revenue: AiRevenueEstimate[];
+  ai_investment: AiInvestmentEstimate[];
+  ai_profitability: AiProfitabilityScore[];
+  intelligence_reports: AiEconomicsReport[];
+};

@@ -1,5 +1,14 @@
-import { fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
-import type { CollectionResponse, Entity, EntityType, MetricValue, RealityIndexItem, Scoreboard } from "@/types/api";
+import { fallbackAiEconomics, fallbackCollections, fallbackMetrics, fallbackScoreboard } from "@/lib/fallback-data";
+import type {
+  AiEconomicsDashboard,
+  AiProfitabilityScore,
+  CollectionResponse,
+  Entity,
+  EntityType,
+  MetricValue,
+  RealityIndexItem,
+  Scoreboard
+} from "@/types/api";
 
 const API_BASE_URL = process.env.WEB_PUBLIC_API_BASE_URL ?? process.env.APIP_API_BASE_URL;
 const PUBLIC_API_KEY = process.env.APIP_PUBLIC_API_KEY ?? process.env.WEB_PUBLIC_API_KEY;
@@ -79,6 +88,17 @@ export async function fetchEntity(resource: "companies" | "industries" | "countr
 export function fetchMetrics() {
   return apiFetch<CollectionResponse<MetricValue>>("metrics/search", {
     items: fallbackMetrics,
+    next_cursor: null
+  });
+}
+
+export function fetchAiEconomics() {
+  return apiFetch<AiEconomicsDashboard>("ai-economics", fallbackAiEconomics);
+}
+
+export function fetchAiProfitability() {
+  return apiFetch<CollectionResponse<AiProfitabilityScore>>("ai-profitability", {
+    items: fallbackAiEconomics.ai_profitability,
     next_cursor: null
   });
 }
