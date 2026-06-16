@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+from app.domains.ai_economics.service import calculate_ai_profitability_score
 from app.domains.calculator.service import calculate_roi
 from app.domains.confidence.service import (
     calculate_confidence,
@@ -24,6 +25,8 @@ def test_source_reliability_scores_match_prd():
     assert source_reliability_score("industry_report") == 65
     assert source_reliability_score("news_article") == 50
     assert source_reliability_score("community_estimate") == 30
+    assert source_reliability_score("sec_edgar") == 100
+    assert source_reliability_score("yahoo_finance") == 70
 
 
 def test_freshness_scores_match_prd_buckets():
@@ -48,6 +51,19 @@ def test_ai_reality_index_classification_bands_match_prd():
     assert calculate_ai_reality_index(50, 50, 50, 50)["classification"] == "Emerging"
     assert calculate_ai_reality_index(30, 30, 30, 30)["classification"] == "Speculative"
     assert calculate_ai_reality_index(0, 0, 0, 0)["classification"] == "Cash Burn Zone"
+
+
+def test_ai_profitability_score_formula_matches_sprint_7_weights():
+    result = calculate_ai_profitability_score(
+        revenue_efficiency=80,
+        ai_revenue_growth=70,
+        ai_margin_proxy=60,
+        infrastructure_roi=50,
+        capital_efficiency=40,
+    )
+    assert result["score"] == 62
+    assert result["rating"] == "D"
+    assert result["classification"] == "Investment Heavy"
 
 
 def test_roi_calculator_returns_break_even_users():

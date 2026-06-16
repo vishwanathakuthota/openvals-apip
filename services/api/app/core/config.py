@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     )
     secret_key: str = Field(default="replace-me-with-at-least-32-bytes", alias="SECRET_KEY")
     cors_origins_raw: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
+    sec_user_agent: str = Field(
+        default="OpenVals APIP local-dev admin@openvalidations.com",
+        alias="SEC_USER_AGENT",
+    )
+    yahoo_finance_enabled: bool = Field(default=True, alias="YAHOO_FINANCE_ENABLED")
+    ingestion_interval_minutes: int = Field(default=30, alias="INGESTION_INTERVAL_MINUTES")
 
     @property
     def enable_docs(self) -> bool:

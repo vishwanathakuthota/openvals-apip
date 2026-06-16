@@ -12,6 +12,8 @@ SOURCE_RELIABILITY_SCORES = {
     "industry_report": 65,
     "news_article": 50,
     "community_estimate": 30,
+    "sec_edgar": 100,
+    "yahoo_finance": 70,
 }
 
 

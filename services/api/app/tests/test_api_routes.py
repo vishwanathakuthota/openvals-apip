@@ -85,6 +85,18 @@ def test_api_v1_health_endpoint_reports_service_status():
     assert set(payload["checks"]) == {"api", "postgres", "redis"}
 
 
+def test_ingestion_status_endpoint_reports_scheduler_configuration():
+    client = build_client()
+
+    response = client.get("/api/v1/ingestion/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["interval_minutes"] == 30
+    assert payload["scheduler_task"] == "apip.ingest_live_data"
+    assert payload["yahoo_finance_enabled"] is True
+
+
 def test_confidence_endpoint_returns_metric_confidence():
     client = build_client()
     headers = api_key_headers(client)
@@ -133,6 +145,105 @@ def test_ai_reality_index_endpoint_filters_by_entity_type():
     items = response.json()["items"]
     assert items
     assert {item["entity_type"] for item in items} == {"industry"}
+
+
+def test_ai_economics_endpoints_return_ten_company_scope_and_metadata():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    revenue = client.get("/api/v1/ai-revenue", headers=headers)
+    investment = client.get("/api/v1/ai-investment", headers=headers)
+    profitability = client.get("/api/v1/ai-profitability", headers=headers)
+    dashboard = client.get("/api/v1/ai-economics", headers=headers)
+
+    assert revenue.status_code == 200
+    assert investment.status_code == 200
+    assert profitability.status_code == 200
+    assert dashboard.status_code == 200
+    assert len(revenue.json()["items"]) == 10
+    assert len(investment.json()["items"]) == 10
+    assert len(profitability.json()["items"]) == 10
+    assert dashboard.json()["summary"]["companies_tracked"] == 10
+
+    first_revenue = revenue.json()["items"][0]
+    assert first_revenue["ai_revenue_estimate"] > 0
+    assert first_revenue["confidence_score"] > 0
+    assert first_revenue["trust_score"] > 0
+    assert first_revenue["source_count"] >= 1
+    assert first_revenue["last_updated"]
+    assert first_revenue["sources"]
+
+    first_investment = investment.json()["items"][0]
+    assert first_investment["ai_investment"] > 0
+    assert first_investment["ai_rd_spend"] > 0
+    assert first_investment["infrastructure_spend"] > 0
+
+    leaderboard = profitability.json()["items"]
+    assert leaderboard[0]["score"] >= leaderboard[-1]["score"]
+    assert leaderboard[0]["components"]["revenue_efficiency"] >= 0
+    assert leaderboard[0]["formula"].startswith("25% Revenue Efficiency")
+
+
+def test_ai_economics_company_report_and_missing_company_handling():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/ai-economics/reports/microsoft", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company"] == "Microsoft"
+    assert payload["ai_profitability_score"] > 0
+    assert payload["evidence_sections"] == [
+        "Revenue",
+        "Earnings Calls",
+        "Investor Presentations",
+        "SEC Filings",
+        "Public AI Disclosures",
+    ]
+
+    missing = client.get("/api/v1/ai-economics/reports/not-a-company", headers=headers)
+    assert missing.status_code == 404
+
+
+def test_company_detail_routes_support_slug_lookup_for_public_pages():
+    client = build_client()
+    headers = api_key_headers(client)
+
+    response = client.get("/api/v1/companies/microsoft", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Microsoft"
+    assert payload["slug"] == "microsoft"
+    assert {metric["metric_key"] for metric in payload["metrics"]} >= {"ai_revenue", "ai_spend"}
+
+
+def test_admin_ingestion_status_and_manual_trigger_are_protected_and_callable(monkeypatch):
+    client = build_client()
+    headers = auth_headers(client)
+
+    def fake_run_live_ingestion(_db):
+        return {
+            "id": "run_test",
+            "source_type": "live_data",
+            "status": "completed",
+            "started_at": "2026-06-15T00:00:00+00:00",
+            "completed_at": "2026-06-15T00:01:00+00:00",
+            "records_created": 7,
+            "records_failed": 0,
+            "message": "mocked live ingestion completed",
+        }
+
+    monkeypatch.setattr("app.api.routes.admin.run_live_ingestion", fake_run_live_ingestion)
+
+    status_response = client.get("/api/v1/admin/ingestion/status", headers=headers)
+    trigger_response = client.post("/api/v1/admin/ingestion/run", headers=headers)
+
+    assert status_response.status_code == 200
+    assert status_response.json()["scheduler_task"] == "apip.ingest_live_data"
+    assert trigger_response.status_code == 200
+    assert trigger_response.json()["records_created"] == 7
 
 
 def test_admin_routes_require_admin_authentication():

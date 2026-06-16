@@ -14,7 +14,8 @@ dependencies = [
   "redis>=5.0.0",
   "celery>=5.4.0",
   "PyJWT>=2.8.0",
-  "python-multipart>=0.0.20"
+  "python-multipart>=0.0.20",
+  "yfinance>=0.2.50"
 ]
 
 [project.optional-dependencies]

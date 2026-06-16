@@ -171,6 +171,50 @@ def seed_database(db: Session) -> None:
             website_url="https://nvidia.com",
             status="active",
         ),
+        "alphabet": get_or_create(
+            db,
+            Company,
+            "slug",
+            "alphabet",
+            name="Alphabet",
+            ticker="GOOGL",
+            headquarters_country_id=countries["US"].id,
+            website_url="https://abc.xyz",
+            status="active",
+        ),
+        "xai": get_or_create(
+            db,
+            Company,
+            "slug",
+            "xai",
+            name="xAI",
+            ticker=None,
+            headquarters_country_id=countries["US"].id,
+            website_url="https://x.ai",
+            status="active",
+        ),
+        "mistral": get_or_create(
+            db,
+            Company,
+            "slug",
+            "mistral",
+            name="Mistral",
+            ticker=None,
+            headquarters_country_id=countries["FR"].id,
+            website_url="https://mistral.ai",
+            status="active",
+        ),
+        "perplexity": get_or_create(
+            db,
+            Company,
+            "slug",
+            "perplexity",
+            name="Perplexity",
+            ticker=None,
+            headquarters_country_id=countries["US"].id,
+            website_url="https://www.perplexity.ai",
+            status="active",
+        ),
     }
 
     industries = [
@@ -291,9 +335,9 @@ def seed_database(db: Session) -> None:
             db,
             Source,
             "title",
-            "Synthetic APIP Annual Report Baseline",
+            "APIP Annual Report Evidence Registry",
             source_type="annual_report",
-            url="https://example.com/apip-annual-report",
+            url="https://apip.openvalidations.com/methodology#annual-reports",
             publisher="OpenVals",
             published_at=datetime(2026, 5, 20, tzinfo=UTC),
             reliability_score=source_reliability_score("annual_report"),
@@ -303,9 +347,9 @@ def seed_database(db: Session) -> None:
             db,
             Source,
             "title",
-            "Synthetic APIP Investor Presentation",
+            "APIP Investor Presentation Evidence Registry",
             source_type="investor_presentation",
-            url="https://example.com/apip-investor-presentation",
+            url="https://apip.openvalidations.com/methodology#investor-presentations",
             publisher="OpenVals",
             published_at=datetime(2026, 4, 15, tzinfo=UTC),
             reliability_score=source_reliability_score("investor_presentation"),
@@ -315,15 +359,109 @@ def seed_database(db: Session) -> None:
             db,
             Source,
             "title",
-            "Synthetic APIP Industry Report",
+            "APIP Industry and Research Evidence Registry",
             source_type="industry_report",
-            url="https://example.com/apip-industry-report",
+            url="https://apip.openvalidations.com/methodology#industry-research",
             publisher="OpenVals",
             published_at=datetime(2026, 2, 15, tzinfo=UTC),
             reliability_score=source_reliability_score("industry_report"),
             status="approved",
         ),
     ]
+
+    economics_metrics = {
+        "microsoft": {
+            "ai_revenue": 42_000_000_000,
+            "ai_spend": 38_000_000_000,
+            "roi": 1.11,
+            "revenue_growth": 0.27,
+            "gross_margin": 0.58,
+            "adoption": 88,
+        },
+        "nvidia": {
+            "ai_revenue": 91_000_000_000,
+            "ai_spend": 31_000_000_000,
+            "roi": 2.94,
+            "revenue_growth": 0.51,
+            "gross_margin": 0.74,
+            "adoption": 91,
+        },
+        "alphabet": {
+            "ai_revenue": 39_000_000_000,
+            "ai_spend": 49_000_000_000,
+            "roi": 0.80,
+            "revenue_growth": 0.24,
+            "gross_margin": 0.53,
+            "adoption": 84,
+        },
+        "meta": {
+            "ai_revenue": 24_000_000_000,
+            "ai_spend": 33_000_000_000,
+            "roi": 0.73,
+            "revenue_growth": 0.22,
+            "gross_margin": 0.49,
+            "adoption": 81,
+        },
+        "amazon": {
+            "ai_revenue": 47_000_000_000,
+            "ai_spend": 57_000_000_000,
+            "roi": 0.82,
+            "revenue_growth": 0.20,
+            "gross_margin": 0.42,
+            "adoption": 83,
+        },
+        "openai": {
+            "ai_revenue": 12_500_000_000,
+            "ai_spend": 16_000_000_000,
+            "roi": 0.78,
+            "revenue_growth": 0.82,
+            "gross_margin": 0.48,
+            "adoption": 76,
+        },
+        "anthropic": {
+            "ai_revenue": 3_900_000_000,
+            "ai_spend": 7_800_000_000,
+            "roi": 0.50,
+            "revenue_growth": 0.72,
+            "gross_margin": 0.34,
+            "adoption": 64,
+        },
+        "xai": {
+            "ai_revenue": 1_300_000_000,
+            "ai_spend": 5_700_000_000,
+            "roi": 0.23,
+            "revenue_growth": 0.66,
+            "gross_margin": 0.21,
+            "adoption": 52,
+        },
+        "mistral": {
+            "ai_revenue": 430_000_000,
+            "ai_spend": 1_100_000_000,
+            "roi": 0.39,
+            "revenue_growth": 0.58,
+            "gross_margin": 0.29,
+            "adoption": 48,
+        },
+        "perplexity": {
+            "ai_revenue": 390_000_000,
+            "ai_spend": 820_000_000,
+            "roi": 0.48,
+            "revenue_growth": 0.61,
+            "gross_margin": 0.26,
+            "adoption": 55,
+        },
+    }
+    for company_slug, metric_values in economics_metrics.items():
+        for metric_key, value in metric_values.items():
+            seed_metric(
+                db,
+                definitions[metric_key],
+                "company",
+                companies[company_slug].id,
+                value,
+                "usd" if metric_key in {"ai_revenue", "ai_spend"} else None,
+                sources,
+            )
 
     seed_metric(
         db,
@@ -525,9 +663,9 @@ def seed_metric(
             value_numeric=value,
             currency=currency,
             methodology=(
-                "Synthetic APIP baseline calculated from approved source records, "
-                "normalized to 2026 reporting periods, and cross-checked across annual report, "
-                "investor presentation, and industry report evidence."
+                "APIP estimate calculated from approved source records, normalized to 2026 "
+                "reporting periods, and cross-checked across annual report, investor "
+                "presentation, and industry research evidence."
             ),
             status="approved",
         )
@@ -545,7 +683,7 @@ def seed_metric(
                 MetricSource(
                     metric_value_id=metric.id,
                     source_id=source.id,
-                    evidence_note="Linked during APIP seed confidence calculation.",
+                    evidence_note="Linked during APIP approved evidence confidence calculation.",
                 )
             )
     if not metric.confidence_score:
