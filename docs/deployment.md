@@ -266,16 +266,29 @@ Production NGINX routes:
 | --- | --- |
 | `/` | `web:3000` |
 | `/_next/*` | `web:3000` |
-| `/api/*` | `api:8000` |
-| `/api/v1/health` | `api:8000` |
+| `/api/*` | `api:8000` with `/api/` preserved |
+| `/api/v1/health` | `api:8000` with `/api/v1/health` preserved |
 | `/health/*` | `api:8000` |
 | `/healthz` | NGINX local health response |
+
+The production template must contain this API location before the frontend catch-all:
+
+```nginx
+location /api/ {
+    proxy_pass http://api:8000/api/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
 
 Verify on the VPS before enabling Cloudflare proxy:
 
 ```bash
 curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/
 curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/api/v1/health
+curl --resolve apip.openvalidations.com:443:<vps-public-ip> https://apip.openvalidations.com/api/v1/ingestion/status
 ```
 
 Verify after enabling Cloudflare proxy:
@@ -283,6 +296,7 @@ Verify after enabling Cloudflare proxy:
 ```bash
 curl --fail https://apip.openvalidations.com/
 curl --fail https://apip.openvalidations.com/api/v1/health
+curl --fail https://apip.openvalidations.com/api/v1/ingestion/status
 ```
 
 If the health endpoint is correct, the expected response is:
@@ -296,6 +310,59 @@ If the health endpoint is correct, the expected response is:
     "redis": "ok"
   }
 }
+```
+
+## API Reverse Proxy Troubleshooting
+
+If an API URL such as `/api/v1/health` or `/api/v1/ingestion/status` returns an HTML Next.js 404 page instead of JSON, NGINX is routing `/api/` to the frontend container instead of FastAPI.
+
+Symptoms:
+
+- `curl -i https://apip.openvalidations.com/api/v1/health` returns `content-type: text/html`.
+- The response body starts with `<!DOCTYPE html>`.
+- Headers include Next.js cache or router fields such as `next-router-state-tree`.
+- FastAPI logs do not show the request.
+
+Fix:
+
+1. Confirm the rendered NGINX config contains the `/api/` location:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec nginx nginx -T | grep -A12 "location /api/"
+   ```
+
+2. Confirm the `/api/` location proxies to FastAPI and preserves the `/api/` prefix:
+
+   ```nginx
+   proxy_pass http://api:8000/api/;
+   ```
+
+3. Validate and reload NGINX:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec nginx nginx -t
+   docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+   ```
+
+4. If the old config is still active, recreate NGINX so Docker re-renders the template:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --force-recreate nginx
+   ```
+
+5. Verify JSON responses:
+
+   ```bash
+   curl -i https://apip.openvalidations.com/api/v1/health
+   curl -i https://apip.openvalidations.com/api/v1/ingestion/status
+   ```
+
+Expected API responses must use `content-type: application/json`. If they still return HTML, inspect both logs:
+
+```bash
+docker compose -f docker-compose.prod.yml logs nginx
+docker compose -f docker-compose.prod.yml logs api
+docker compose -f docker-compose.prod.yml logs web
 ```
 
 ## Secure Connection Failed Troubleshooting
